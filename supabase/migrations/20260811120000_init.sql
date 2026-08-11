@@ -58,6 +58,19 @@ create index if not exists idx_expenses_group_date on public.expenses (group_id,
 create index if not exists idx_group_members_user on public.group_members (user_id);
 create index if not exists idx_expense_splits_expense on public.expense_splits (expense_id);
 
+-- Period closures: OPEN by default (no row); CLOSED when a row exists.
+create table if not exists public.group_period_closures (
+  group_id uuid not null references public.groups (id) on delete cascade,
+  period_year int not null,
+  period_month int not null check (period_month between 1 and 12),
+  closed_by uuid not null references public.profiles (id),
+  closed_at timestamptz not null default now(),
+  primary key (group_id, period_year, period_month)
+);
+
+create index if not exists idx_group_period_closures_group
+  on public.group_period_closures (group_id);
+
 -- Helpers
 create or replace function public.is_group_member(p_group_id uuid)
 returns boolean
@@ -85,6 +98,86 @@ as $$
       and gm.user_id = auth.uid()
       and gm.role = 'OWNER'
   );
+$$;
+
+create or replace function public.is_group_period_closed(
+  p_group_id uuid,
+  p_year int,
+  p_month int
+)
+returns boolean
+language sql
+stable
+security definer
+set search_path = public
+as $$
+  select exists (
+    select 1
+    from public.group_period_closures c
+    where c.group_id = p_group_id
+      and c.period_year = p_year
+      and c.period_month = p_month
+  );
+$$;
+
+create or replace function public.close_group_period(
+  p_group_id uuid,
+  p_year int,
+  p_month int
+)
+returns void
+language plpgsql
+security definer
+set search_path = public
+as $$
+begin
+  if auth.uid() is null then
+    raise exception 'not authenticated';
+  end if;
+  if p_month < 1 or p_month > 12 then
+    raise exception 'invalid period month';
+  end if;
+  if not public.is_group_owner(p_group_id) then
+    raise exception 'only owner can close period';
+  end if;
+  if public.is_group_period_closed(p_group_id, p_year, p_month) then
+    return;
+  end if;
+
+  insert into public.group_period_closures (
+    group_id, period_year, period_month, closed_by
+  ) values (
+    p_group_id, p_year, p_month, auth.uid()
+  );
+end;
+$$;
+
+create or replace function public.reopen_group_period(
+  p_group_id uuid,
+  p_year int,
+  p_month int
+)
+returns void
+language plpgsql
+security definer
+set search_path = public
+as $$
+begin
+  if auth.uid() is null then
+    raise exception 'not authenticated';
+  end if;
+  if p_month < 1 or p_month > 12 then
+    raise exception 'invalid period month';
+  end if;
+  if not public.is_group_owner(p_group_id) then
+    raise exception 'only owner can reopen period';
+  end if;
+
+  delete from public.group_period_closures
+  where group_id = p_group_id
+    and period_year = p_year
+    and period_month = p_month;
+end;
 $$;
 
 create or replace function public.generate_invite_code()
@@ -272,6 +365,13 @@ begin
   ) < 2 then
     raise exception 'group needs at least two members';
   end if;
+  if public.is_group_period_closed(
+    p_group_id,
+    extract(year from p_expense_date)::int,
+    extract(month from p_expense_date)::int
+  ) then
+    raise exception 'period is closed';
+  end if;
   if p_amount_minor is null or p_amount_minor <= 0 then
     raise exception 'amount must be > 0';
   end if;
@@ -363,6 +463,17 @@ begin
     or public.is_group_owner(v_expense.group_id)
   ) then
     raise exception 'not allowed to edit expense';
+  end if;
+  if public.is_group_period_closed(
+    v_expense.group_id,
+    extract(year from v_expense.expense_date)::int,
+    extract(month from v_expense.expense_date)::int
+  ) or public.is_group_period_closed(
+    v_expense.group_id,
+    extract(year from p_expense_date)::int,
+    extract(month from p_expense_date)::int
+  ) then
+    raise exception 'period is closed';
   end if;
   if p_amount_minor is null or p_amount_minor <= 0 then
     raise exception 'amount must be > 0';
@@ -531,6 +642,38 @@ create policy expenses_delete on public.expenses
     or public.is_group_owner(group_id)
   );
 
+create or replace function public.enforce_expense_period_open()
+returns trigger
+language plpgsql
+security definer
+set search_path = public
+as $$
+begin
+  if public.is_group_period_closed(
+    old.group_id,
+    extract(year from old.expense_date)::int,
+    extract(month from old.expense_date)::int
+  ) then
+    raise exception 'period is closed';
+  end if;
+  return old;
+end;
+$$;
+
+drop trigger if exists trg_expenses_period_closed_delete on public.expenses;
+create trigger trg_expenses_period_closed_delete
+  before delete on public.expenses
+  for each row
+  execute function public.enforce_expense_period_open();
+
+-- Period closures
+alter table public.group_period_closures enable row level security;
+
+drop policy if exists group_period_closures_select on public.group_period_closures;
+create policy group_period_closures_select on public.group_period_closures
+  for select to authenticated
+  using (public.is_group_member(group_id));
+
 -- Splits
 drop policy if exists splits_select on public.expense_splits;
 create policy splits_select on public.expense_splits
@@ -548,9 +691,14 @@ grant select, update on public.groups to authenticated;
 grant select on public.group_members to authenticated;
 grant select, delete on public.expenses to authenticated;
 grant select on public.expense_splits to authenticated;
+grant select on public.group_period_closures to authenticated;
+revoke insert, update, delete on public.group_period_closures from authenticated;
 grant execute on function public.create_group(text) to authenticated;
 grant execute on function public.join_group_by_code(text) to authenticated;
 grant execute on function public.rotate_invite_code(uuid) to authenticated;
 grant execute on function public.remove_group_member(uuid, uuid) to authenticated;
 grant execute on function public.create_expense(uuid, text, bigint, text, uuid, date, jsonb) to authenticated;
 grant execute on function public.update_expense(uuid, text, bigint, text, uuid, date, jsonb) to authenticated;
+grant execute on function public.is_group_period_closed(uuid, int, int) to authenticated;
+grant execute on function public.close_group_period(uuid, int, int) to authenticated;
+grant execute on function public.reopen_group_period(uuid, int, int) to authenticated;

@@ -39,6 +39,11 @@ Usá dos cuentas (email o Google) en emulador/dispositivo.
 
 - [ ] Navegar mes anterior / siguiente en Resumen
 - [ ] Un gasto con fecha de otro mes aparece solo en ese período
+- [ ] Resumen muestra chip **Abierto** / **Cerrado**
+- [ ] OWNER: **Cerrar período** (confirmación) → chip Cerrado; MEMBER no ve la acción
+- [ ] Con período cerrado: no se puede Marcar saldado / Deshacer
+- [ ] Con período cerrado: no se puede editar ni eliminar un gasto de ese mes
+- [ ] OWNER: **Reabrir período** vuelve a permitir mutaciones
 
 ## Deudas saldadas
 

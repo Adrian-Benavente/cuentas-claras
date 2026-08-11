@@ -23,12 +23,14 @@ import androidx.compose.material.icons.automirrored.filled.NavigateNext
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Share
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.AssistChip
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.ListItem
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.PrimaryTabRow
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHost
@@ -64,6 +66,7 @@ import com.cuentasclaras.app.presentation.components.FullScreenMessage
 import com.cuentasclaras.app.presentation.components.UiState
 import com.cuentasclaras.app.util.InviteShare
 import com.cuentasclaras.app.util.MoneyFormatter
+import com.cuentasclaras.domain.finance.PeriodGate
 import com.cuentasclaras.domain.model.Expense
 import com.cuentasclaras.domain.model.GroupMember
 import com.cuentasclaras.domain.model.MemberBalance
@@ -91,6 +94,8 @@ fun GroupScreen(
     val tabs = listOf("Resumen", "Gastos", "Miembros", "Configuración")
     val snackbarHostState = remember { SnackbarHostState() }
     var showRotateConfirm by remember { mutableStateOf(false) }
+    var showClosePeriodConfirm by remember { mutableStateOf(false) }
+    var showReopenPeriodConfirm by remember { mutableStateOf(false) }
 
     val lifecycleOwner = LocalLifecycleOwner.current
     DisposableEffect(lifecycleOwner, viewModel) {
@@ -131,7 +136,12 @@ fun GroupScreen(
         snackbarHost = { SnackbarHost(snackbarHostState) },
         floatingActionButton = {
             val content = (state as? UiState.Content)?.data
-            val canAddExpenses = content != null && content.members.size >= 2
+            val canAddExpenses = content != null &&
+                content.members.size >= 2 &&
+                PeriodGate.showCreateExpenseFab(
+                    selectedPeriod = content.period,
+                    selectedPeriodClosed = content.isPeriodClosed,
+                )
             if (tabIndex == 1 && canAddExpenses) {
                 FloatingActionButton(
                     onClick = onAddExpense,
@@ -175,6 +185,8 @@ fun GroupScreen(
                             onNext = viewModel::nextPeriod,
                             onMarkSettled = viewModel::markSettled,
                             onUndoPayment = viewModel::undoPayment,
+                            onRequestClosePeriod = { showClosePeriodConfirm = true },
+                            onRequestReopenPeriod = { showReopenPeriodConfirm = true },
                             onGoToInvite = { tabIndex = 3 },
                         )
                         1 -> ExpensesTab(
@@ -226,6 +238,59 @@ fun GroupScreen(
             },
         )
     }
+
+    if (showClosePeriodConfirm) {
+        AlertDialog(
+            onDismissRequest = { showClosePeriodConfirm = false },
+            title = { Text("Cerrar período") },
+            text = {
+                Text(
+                    "No se van a poder cargar, editar ni eliminar gastos de este mes, " +
+                        "ni marcar saldados. Podés reabrirlo después.",
+                )
+            },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        showClosePeriodConfirm = false
+                        viewModel.closePeriod()
+                    },
+                ) {
+                    Text("Cerrar período")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showClosePeriodConfirm = false }) {
+                    Text("Cancelar")
+                }
+            },
+        )
+    }
+
+    if (showReopenPeriodConfirm) {
+        AlertDialog(
+            onDismissRequest = { showReopenPeriodConfirm = false },
+            title = { Text("Reabrir período") },
+            text = {
+                Text("Se van a poder volver a editar gastos y saldos de este mes.")
+            },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        showReopenPeriodConfirm = false
+                        viewModel.reopenPeriod()
+                    },
+                ) {
+                    Text("Reabrir")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showReopenPeriodConfirm = false }) {
+                    Text("Cancelar")
+                }
+            },
+        )
+    }
 }
 
 @Composable
@@ -235,6 +300,8 @@ private fun SummaryTab(
     onNext: () -> Unit,
     onMarkSettled: (SuggestedTransfer) -> Unit,
     onUndoPayment: (com.cuentasclaras.domain.model.SettlementPaymentId) -> Unit,
+    onRequestClosePeriod: () -> Unit,
+    onRequestReopenPeriod: () -> Unit,
     onGoToInvite: () -> Unit,
 ) {
     val periodLabel = content.period.month
@@ -242,6 +309,7 @@ private fun SummaryTab(
         .replaceFirstChar { it.titlecase(Locale.forLanguageTag("es-AR")) } +
         " ${content.period.year}"
     val needsInvite = content.members.size < 2
+    val periodClosed = content.isPeriodClosed
 
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
@@ -267,6 +335,60 @@ private fun SummaryTab(
                 ) {
                     Icon(Icons.AutoMirrored.Filled.NavigateNext, contentDescription = null)
                 }
+            }
+        }
+        item {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                AssistChip(
+                    onClick = {},
+                    enabled = false,
+                    label = {
+                        Text(
+                            if (periodClosed) "Cerrado" else "Abierto",
+                        )
+                    },
+                    modifier = Modifier.semantics {
+                        contentDescription = if (periodClosed) {
+                            "Período cerrado"
+                        } else {
+                            "Período abierto"
+                        }
+                    },
+                )
+                if (content.isOwner) {
+                    if (periodClosed) {
+                        OutlinedButton(
+                            onClick = onRequestReopenPeriod,
+                            modifier = Modifier.semantics {
+                                contentDescription = "Reabrir período"
+                            },
+                        ) {
+                            Text("Reabrir período")
+                        }
+                    } else {
+                        OutlinedButton(
+                            onClick = onRequestClosePeriod,
+                            modifier = Modifier.semantics {
+                                contentDescription = "Cerrar período"
+                            },
+                        ) {
+                            Text("Cerrar período")
+                        }
+                    }
+                }
+            }
+        }
+        if (periodClosed) {
+            item {
+                Text(
+                    "Este período está cerrado. No se pueden editar gastos ni marcar saldados.",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
             }
         }
         if (needsInvite) {
@@ -329,6 +451,7 @@ private fun SummaryTab(
                 TransferRow(
                     transfer = transfer,
                     members = content.members,
+                    settlementsEnabled = !periodClosed,
                     onMarkSettled = { onMarkSettled(transfer) },
                 )
             }
@@ -358,6 +481,7 @@ private fun SummaryTab(
                 SettledPaymentRow(
                     payment = payment,
                     members = content.members,
+                    undoEnabled = !periodClosed,
                     onUndo = { onUndoPayment(payment.id) },
                 )
             }
@@ -402,6 +526,7 @@ private fun MemberBalanceCard(balance: MemberBalance, displayName: String) {
 private fun TransferRow(
     transfer: SuggestedTransfer,
     members: List<GroupMember>,
+    settlementsEnabled: Boolean,
     onMarkSettled: () -> Unit,
 ) {
     val from = displayNameFor(transfer.fromUserId, members)
@@ -420,6 +545,7 @@ private fun TransferRow(
         )
         TextButton(
             onClick = onMarkSettled,
+            enabled = settlementsEnabled,
             modifier = Modifier.semantics {
                 contentDescription = "Marcar saldado: $label"
             },
@@ -433,6 +559,7 @@ private fun TransferRow(
 private fun SettledPaymentRow(
     payment: com.cuentasclaras.domain.model.SettlementPayment,
     members: List<GroupMember>,
+    undoEnabled: Boolean,
     onUndo: () -> Unit,
 ) {
     val from = displayNameFor(payment.fromUserId, members)
@@ -451,6 +578,7 @@ private fun SettledPaymentRow(
         )
         TextButton(
             onClick = onUndo,
+            enabled = undoEnabled,
             modifier = Modifier.semantics { contentDescription = "Deshacer: $label" },
         ) {
             Text("Deshacer")
@@ -466,7 +594,13 @@ private fun ExpensesTab(
     onGoToInvite: () -> Unit,
 ) {
     val periodExpenses = content.expenses.filter { it.period == content.period }
-    val canAddExpenses = content.members.size >= 2
+    val canAddExpenses = content.members.size >= 2 &&
+        PeriodGate.showCreateExpenseFab(
+            selectedPeriod = content.period,
+            selectedPeriodClosed = content.isPeriodClosed,
+        )
+    val periodClosed = content.isPeriodClosed
+
     if (periodExpenses.isEmpty()) {
         if (canAddExpenses) {
             FullScreenMessage(
@@ -474,6 +608,12 @@ private fun ExpensesTab(
                 body = "Tocá + para registrar el primero. El resumen se actualiza al guardar.",
                 actionLabel = "Agregar gasto",
                 onAction = onAddExpense,
+            )
+        } else if (periodClosed) {
+            FullScreenMessage(
+                title = "Período cerrado",
+                body = "No hay gastos en este mes y el período está cerrado. " +
+                    "El administrador puede reabrirlo desde Resumen.",
             )
         } else {
             FullScreenMessage(
@@ -489,7 +629,17 @@ private fun ExpensesTab(
     }
 
     LazyColumn(contentPadding = PaddingValues(16.dp)) {
-        if (!canAddExpenses) {
+        if (periodClosed) {
+            item {
+                Text(
+                    "Este período está cerrado. Podés ver los gastos, pero no editarlos ni agregar nuevos de este mes.",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(bottom = 8.dp),
+                )
+            }
+        }
+        if (!canAddExpenses && !periodClosed) {
             item {
                 Text(
                     "Para agregar nuevos gastos necesitás al menos otra persona en el grupo. " +

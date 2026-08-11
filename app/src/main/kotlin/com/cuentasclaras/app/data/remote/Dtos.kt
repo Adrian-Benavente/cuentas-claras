@@ -98,3 +98,12 @@ data class SettlementPaymentInsertDto(
     @SerialName("period_month") val periodMonth: Int,
     @SerialName("created_by") val createdBy: String,
 )
+
+@Serializable
+data class PeriodClosureDto(
+    @SerialName("group_id") val groupId: String,
+    @SerialName("period_year") val periodYear: Int,
+    @SerialName("period_month") val periodMonth: Int,
+    @SerialName("closed_by") val closedBy: String,
+    @SerialName("closed_at") val closedAt: String,
+)

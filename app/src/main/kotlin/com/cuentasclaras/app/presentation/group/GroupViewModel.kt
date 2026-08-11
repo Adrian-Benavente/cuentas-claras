@@ -6,15 +6,18 @@ import androidx.lifecycle.viewModelScope
 import com.cuentasclaras.app.data.auth.AuthRepository
 import com.cuentasclaras.app.data.expense.ExpenseRepository
 import com.cuentasclaras.app.data.group.GroupRepository
+import com.cuentasclaras.app.data.period.PeriodRepository
 import com.cuentasclaras.app.data.settlement.SettlementRepository
 import com.cuentasclaras.app.presentation.components.UiState
 import com.cuentasclaras.app.util.UserFacingError
+import com.cuentasclaras.domain.finance.PeriodGate
 import com.cuentasclaras.domain.finance.PeriodSummaryCalculator
 import com.cuentasclaras.domain.model.Expense
 import com.cuentasclaras.domain.model.Group
 import com.cuentasclaras.domain.model.GroupId
 import com.cuentasclaras.domain.model.GroupMember
 import com.cuentasclaras.domain.model.MemberRole
+import com.cuentasclaras.domain.model.PeriodStatus
 import com.cuentasclaras.domain.model.PeriodSummary
 import com.cuentasclaras.domain.model.SettlementPaymentId
 import com.cuentasclaras.domain.model.SuggestedTransfer
@@ -36,11 +39,14 @@ data class GroupContent(
     val expenses: List<Expense>,
     val period: YearMonth,
     val summary: PeriodSummary,
+    val periodStatus: PeriodStatus,
     val isOwner: Boolean,
     val currentUserId: UserId?,
     /** Period expenses whose equal split was saved with fewer members than the group has now. */
     val expensesMissingMembers: Int = 0,
-)
+) {
+    val isPeriodClosed: Boolean get() = periodStatus == PeriodStatus.CLOSED
+}
 
 @HiltViewModel
 class GroupViewModel @Inject constructor(
@@ -48,6 +54,7 @@ class GroupViewModel @Inject constructor(
     private val groupRepository: GroupRepository,
     private val expenseRepository: ExpenseRepository,
     private val settlementRepository: SettlementRepository,
+    private val periodRepository: PeriodRepository,
     private val authRepository: AuthRepository,
 ) : ViewModel() {
 
@@ -103,9 +110,43 @@ class GroupViewModel @Inject constructor(
         }
     }
 
+    fun closePeriod() {
+        val content = (_state.value as? UiState.Content)?.data ?: return
+        if (!content.isOwner || content.isPeriodClosed) return
+        viewModelScope.launch {
+            runCatching { periodRepository.closePeriod(groupId, content.period) }
+                .onSuccess {
+                    _messages.tryEmit("Período cerrado")
+                    refresh(showLoading = false)
+                }
+                .onFailure { error ->
+                    _messages.tryEmit(UserFacingError.from(error, UserFacingError.Context.PeriodClose))
+                }
+        }
+    }
+
+    fun reopenPeriod() {
+        val content = (_state.value as? UiState.Content)?.data ?: return
+        if (!content.isOwner || !content.isPeriodClosed) return
+        viewModelScope.launch {
+            runCatching { periodRepository.reopenPeriod(groupId, content.period) }
+                .onSuccess {
+                    _messages.tryEmit("Período reabierto")
+                    refresh(showLoading = false)
+                }
+                .onFailure { error ->
+                    _messages.tryEmit(UserFacingError.from(error, UserFacingError.Context.PeriodClose))
+                }
+        }
+    }
+
     fun markSettled(transfer: SuggestedTransfer) {
         val currentUserId = authRepository.currentUserId() ?: return
         val content = (_state.value as? UiState.Content)?.data ?: return
+        if (content.isPeriodClosed) {
+            _messages.tryEmit("Este período está cerrado. Reabrilo para hacer cambios.")
+            return
+        }
         viewModelScope.launch {
             runCatching {
                 settlementRepository.createPayment(
@@ -126,6 +167,11 @@ class GroupViewModel @Inject constructor(
     }
 
     fun undoPayment(paymentId: SettlementPaymentId) {
+        val content = (_state.value as? UiState.Content)?.data
+        if (content?.isPeriodClosed == true) {
+            _messages.tryEmit("Este período está cerrado. Reabrilo para hacer cambios.")
+            return
+        }
         viewModelScope.launch {
             runCatching { settlementRepository.deletePayment(paymentId) }
                 .onSuccess {
@@ -156,6 +202,7 @@ class GroupViewModel @Inject constructor(
         val members = groupRepository.listMembers(groupId)
         val expenses = expenseRepository.listExpenses(groupId)
         val payments = settlementRepository.listPayments(groupId, selectedPeriod)
+        val periodClosed = periodRepository.isPeriodClosed(groupId, selectedPeriod)
         val currentUserId = authRepository.currentUserId()
         val isOwner = members.any {
             it.userId == currentUserId && it.role == MemberRole.OWNER
@@ -181,6 +228,10 @@ class GroupViewModel @Inject constructor(
             expenses = expenses,
             period = selectedPeriod,
             summary = summary,
+            periodStatus = PeriodGate.statusOf(
+                selectedPeriod,
+                if (periodClosed) setOf(selectedPeriod) else emptySet(),
+            ),
             isOwner = isOwner,
             currentUserId = currentUserId,
             expensesMissingMembers = expensesMissingMembers,

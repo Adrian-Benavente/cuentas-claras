@@ -12,6 +12,7 @@ object UserFacingError {
         RotateInvite,
         Settlement,
         RemoveMember,
+        PeriodClose,
         Generic,
     }
 
@@ -30,6 +31,10 @@ object UserFacingError {
             "No encontramos un grupo con ese código."
         message.contains("group needs at least two members") ->
             "Necesitás al menos otra persona en el grupo para cargar un gasto."
+        message.contains("period is closed") ->
+            "Este período está cerrado. Reabrilo para hacer cambios."
+        message.contains("only owner can close") || message.contains("only owner can reopen") ->
+            "Solo el administrador puede cerrar o reabrir el período."
         message.contains("not authenticated") ||
             message.contains("jwt") ||
             message.contains("session") && message.contains("expired") ->
@@ -77,6 +82,7 @@ object UserFacingError {
         Context.RotateInvite -> "No pudimos generar un nuevo código. Intentá de nuevo."
         Context.Settlement -> "No pudimos registrar el pago. Intentá de nuevo."
         Context.RemoveMember -> "No pudimos eliminar al miembro. Intentá de nuevo."
+        Context.PeriodClose -> "No pudimos cambiar el estado del período. Intentá de nuevo."
         Context.Generic -> "Algo salió mal. Intentá de nuevo."
     }
 }

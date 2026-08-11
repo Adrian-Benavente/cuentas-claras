@@ -22,14 +22,28 @@ Profiles of current co-members are readable. After someone is removed, their pro
 | Join group | Authenticated | RPC `join_group_by_code(p_invite_code)` |
 | Remove member | OWNER | RPC `remove_group_member` (MEMBER only; not self) |
 | Rotate invite code | OWNER | RPC `rotate_invite_code` |
-| Create expense | Member | RPC `create_expense` (≥2 members; payer must be member; splits must sum) |
-| Update expense | Creator or OWNER | RPC `update_expense` |
-| Delete expense | Creator or OWNER | RLS `expenses_delete` |
+| Create expense | Member | RPC `create_expense` (≥2 members; payer must be member; splits must sum; period open) |
+| Update expense | Creator or OWNER | RPC `update_expense` (period open for old and new dates) |
+| Delete expense | Creator or OWNER | RLS `expenses_delete` + period-open trigger |
 | Read settlement payments | Member | RLS `settlement_payments_select` |
-| Record settlement payment | Member (`created_by = auth.uid()`) | RLS `settlement_payments_insert` |
-| Delete settlement payment | Member | RLS `settlement_payments_delete` |
+| Record settlement payment | Member (`created_by = auth.uid()`) | RLS `settlement_payments_insert` + period-open trigger |
+| Delete settlement payment | Member | RLS `settlement_payments_delete` + period-open trigger |
+| Close / reopen period | OWNER | RPC `close_group_period` / `reopen_group_period` |
+| Read period closures | Member | RLS `group_period_closures_select` |
 | Read/update own profile | Self | RLS on `profiles` |
 | Read other profiles | Shared group membership | RLS `profiles_select` |
+
+## Closed periods
+
+A period is **OPEN** unless a row exists in `group_period_closures` for `(group_id, year, month)`.
+
+When closed, the server rejects:
+
+- `create_expense` / `update_expense` if the expense date (old or new) falls in that month
+- DELETE on `expenses` for expenses in that month (trigger)
+- INSERT / DELETE on `settlement_payments` for that month (trigger)
+
+Stable exception message: `period is closed`.
 
 ## Invite codes
 

@@ -153,6 +153,14 @@ fun ExpenseEditorScreen(
                 onDateChange = viewModel::onDateChange,
             )
 
+            if (state.isMutationBlocked) {
+                Text(
+                    "Este período está cerrado. Reabrilo desde el resumen del grupo para guardar cambios.",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.error,
+                )
+            }
+
             Text(
                 text = when {
                     expenseId == null && state.members.size < 2 ->
@@ -180,7 +188,7 @@ fun ExpenseEditorScreen(
                 val canCreate = expenseId != null || state.members.size >= 2
                 Button(
                     onClick = viewModel::save,
-                    enabled = canCreate,
+                    enabled = canCreate && !state.isMutationBlocked,
                     modifier = Modifier
                         .fillMaxWidth()
                         .semantics { contentDescription = "Guardar gasto" },
@@ -279,6 +287,13 @@ fun ExpenseDetailScreen(
                     "Este gasto no incluye a todos los miembros actuales. " +
                         "Editá y guardá de nuevo para redistribuirlo en partes iguales.",
                     color = MaterialTheme.colorScheme.error,
+                    style = MaterialTheme.typography.bodyMedium,
+                )
+            }
+            if (state.isPeriodClosed) {
+                Text(
+                    "Este período está cerrado. Reabrilo desde el resumen del grupo para editar o eliminar.",
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
                     style = MaterialTheme.typography.bodyMedium,
                 )
             }

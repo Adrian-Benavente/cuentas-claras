@@ -54,6 +54,18 @@ Recorded transfers (`SettlementPayment`) are separate from expense-derived balan
 Derived from `expense.date` as `YearMonth`. Not stored on the expense.
 Settlement payments store `period_year` / `period_month` explicitly.
 
+### Open / closed
+
+- Default status is **OPEN** (no row).
+- **CLOSED** only when a row exists in `group_period_closures` for `(group_id, year, month)`.
+- Only the group **OWNER** can close or reopen a period.
+- Closing is allowed even if suggested settlements remain pending.
+- While **CLOSED**, mutations are blocked for that month:
+  - create / update / delete expenses whose `expense_date` falls in the period
+  - create / delete settlement payments for that period
+- Reopening restores those mutations.
+- Balances keep being calculated from live expenses; closing freezes mutations, not a balance snapshot.
+
 ## Expenses
 
 - Amount must be `> 0`.

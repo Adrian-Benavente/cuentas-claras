@@ -32,6 +32,16 @@ class UserFacingErrorTest(
                 "Necesitás al menos otra persona en el grupo para cargar un gasto.",
             ),
             arrayOf(
+                "period is closed",
+                UserFacingError.Context.SaveExpense,
+                "Este período está cerrado. Reabrilo para hacer cambios.",
+            ),
+            arrayOf(
+                "only owner can close period",
+                UserFacingError.Context.PeriodClose,
+                "Solo el administrador puede cerrar o reabrir el período.",
+            ),
+            arrayOf(
                 "not authenticated",
                 UserFacingError.Context.Generic,
                 "Tu sesión expiró. Volvé a iniciar sesión.",

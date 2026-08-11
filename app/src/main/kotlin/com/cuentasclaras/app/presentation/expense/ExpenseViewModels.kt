@@ -6,8 +6,10 @@ import androidx.lifecycle.viewModelScope
 import com.cuentasclaras.app.data.auth.AuthRepository
 import com.cuentasclaras.app.data.expense.ExpenseRepository
 import com.cuentasclaras.app.data.group.GroupRepository
+import com.cuentasclaras.app.data.period.PeriodRepository
 import com.cuentasclaras.app.util.MoneyFormatter
 import com.cuentasclaras.app.util.UserFacingError
+import com.cuentasclaras.domain.finance.PeriodGate
 import com.cuentasclaras.domain.model.Currency
 import com.cuentasclaras.domain.model.Expense
 import com.cuentasclaras.domain.model.ExpenseId
@@ -21,6 +23,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import java.time.LocalDate
+import java.time.YearMonth
 import javax.inject.Inject
 
 data class ExpenseEditorUiState(
@@ -30,18 +33,29 @@ data class ExpenseEditorUiState(
     val date: LocalDate = LocalDate.now(),
     val members: List<GroupMember> = emptyList(),
     val currency: Currency = Currency.ARS,
+    val closedPeriods: Set<YearMonth> = emptySet(),
     val isLoading: Boolean = false,
     val isSaving: Boolean = false,
     val errorMessage: String? = null,
     val done: Boolean = false,
     val existing: Expense? = null,
-)
+) {
+    val isSelectedDateClosed: Boolean
+        get() = !PeriodGate.canMutateExpense(date, closedPeriods)
+
+    val isExistingPeriodClosed: Boolean
+        get() = existing?.let { !PeriodGate.canMutateExpense(it.date, closedPeriods) } == true
+
+    val isMutationBlocked: Boolean
+        get() = isSelectedDateClosed || isExistingPeriodClosed
+}
 
 @HiltViewModel
 class ExpenseEditorViewModel @Inject constructor(
     savedStateHandle: SavedStateHandle,
     private val expenseRepository: ExpenseRepository,
     private val groupRepository: GroupRepository,
+    private val periodRepository: PeriodRepository,
     private val authRepository: AuthRepository,
 ) : ViewModel() {
 
@@ -56,6 +70,7 @@ class ExpenseEditorViewModel @Inject constructor(
             runCatching {
                 val group = groupRepository.getGroup(groupId)
                 val members = groupRepository.listMembers(groupId)
+                val closedPeriods = periodRepository.listClosedPeriods(groupId)
                 val currentUser = authRepository.currentUserId()
                 val existing = expenseId?.let { expenseRepository.getExpense(groupId, it) }
                 _state.value = ExpenseEditorUiState(
@@ -65,6 +80,7 @@ class ExpenseEditorViewModel @Inject constructor(
                     date = existing?.date ?: LocalDate.now(),
                     members = members,
                     currency = group.currency,
+                    closedPeriods = closedPeriods,
                     isLoading = false,
                     existing = existing,
                 )
@@ -90,7 +106,7 @@ class ExpenseEditorViewModel @Inject constructor(
     }
 
     fun onDateChange(date: LocalDate) {
-        _state.value = _state.value.copy(date = date)
+        _state.value = _state.value.copy(date = date, errorMessage = null)
     }
 
     fun save() {
@@ -125,6 +141,12 @@ class ExpenseEditorViewModel @Inject constructor(
                 _state.value = current.copy(
                     errorMessage = "Necesitás al menos otra persona en el grupo para cargar un gasto. " +
                         "Invitala con el código desde Configuración.",
+                )
+                return
+            }
+            current.isMutationBlocked -> {
+                _state.value = current.copy(
+                    errorMessage = "Este período está cerrado. Reabrilo para hacer cambios.",
                 )
                 return
             }
@@ -172,6 +194,7 @@ data class ExpenseDetailUiState(
     val expense: Expense? = null,
     val members: List<GroupMember> = emptyList(),
     val canEdit: Boolean = false,
+    val isPeriodClosed: Boolean = false,
     val errorMessage: String? = null,
     val deleted: Boolean = false,
 )
@@ -181,6 +204,7 @@ class ExpenseDetailViewModel @Inject constructor(
     savedStateHandle: SavedStateHandle,
     private val expenseRepository: ExpenseRepository,
     private val groupRepository: GroupRepository,
+    private val periodRepository: PeriodRepository,
     private val authRepository: AuthRepository,
 ) : ViewModel() {
 
@@ -199,15 +223,18 @@ class ExpenseDetailViewModel @Inject constructor(
             runCatching {
                 val expense = expenseRepository.getExpense(groupId, expenseId)
                 val members = groupRepository.listMembers(groupId)
+                val closedPeriods = periodRepository.listClosedPeriods(groupId)
                 val currentUser = authRepository.currentUserId()
                 val isOwner = members.any {
                     it.userId == currentUser && it.role == com.cuentasclaras.domain.model.MemberRole.OWNER
                 }
+                val periodClosed = !PeriodGate.canMutateExpense(expense.date, closedPeriods)
                 _state.value = ExpenseDetailUiState(
                     isLoading = false,
                     expense = expense,
                     members = members,
-                    canEdit = currentUser == expense.createdBy || isOwner,
+                    canEdit = (currentUser == expense.createdBy || isOwner) && !periodClosed,
+                    isPeriodClosed = periodClosed,
                 )
             }.onFailure { error ->
                 if (!keepContent) {
@@ -221,6 +248,12 @@ class ExpenseDetailViewModel @Inject constructor(
     }
 
     fun delete() {
+        if (_state.value.isPeriodClosed) {
+            _state.value = _state.value.copy(
+                errorMessage = "Este período está cerrado. Reabrilo para hacer cambios.",
+            )
+            return
+        }
         viewModelScope.launch {
             runCatching { expenseRepository.deleteExpense(expenseId) }
                 .onSuccess { _state.value = _state.value.copy(deleted = true) }
