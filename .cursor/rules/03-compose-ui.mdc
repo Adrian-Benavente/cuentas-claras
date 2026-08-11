@@ -1,0 +1,108 @@
+---
+description: Jetpack Compose UI and UX rules
+globs:
+  - "**/*.kt"
+  - "!**/domain/**"
+  - "!**/data/**"
+alwaysApply: false
+---
+
+# Jetpack Compose
+
+## General
+
+Use modern Jetpack Compose and Material 3 conventions.
+
+Prefer:
+
+- Stateless composables where practical.
+- State hoisting.
+- Unidirectional data flow.
+- Small composables.
+- Previewable UI where useful.
+- Stable UI models.
+
+Avoid putting business logic in composables.
+
+## State
+
+UI state should explicitly represent:
+
+- Loading.
+- Content.
+- Empty.
+- Error.
+
+Avoid multiple unrelated mutable states when a single screen state model is clearer.
+
+Do not use mutable global state.
+
+## Forms
+
+Expense forms should prioritize speed:
+
+- Concept.
+- Amount.
+- Payer.
+- Date.
+
+Use sensible defaults.
+
+Validate input before submission.
+
+Error messages must explain how the user can fix the problem.
+
+## Navigation
+
+Navigation should represent user flows rather than internal implementation details.
+
+Do not pass large domain objects through navigation arguments.
+
+Prefer stable IDs and load the required state in the destination.
+
+## Material 3
+
+Use Material 3 components consistently.
+
+Do not create custom UI components when an appropriate Material component already exists.
+
+Use design tokens/theme values rather than scattering magic dimensions and colors.
+
+## Accessibility
+
+Every interactive element must have an understandable semantic label.
+
+Do not rely only on color to communicate:
+
+- positive balance,
+- negative balance,
+- errors,
+- selected states.
+
+Support:
+
+- TalkBack.
+- Font scaling.
+- Touch target sizes.
+- Sufficient contrast.
+- Logical focus/navigation order.
+
+Icons that are purely decorative should not create redundant accessibility announcements.
+
+## UX
+
+The most common action — adding an expense — should be fast.
+
+Avoid unnecessary confirmation dialogs.
+
+Destructive operations such as deleting an expense should provide an appropriate confirmation or undo mechanism.
+
+Use clear financial language:
+
+- "Pagó"
+- "Le corresponde"
+- "Debe pagar"
+- "Debe recibir"
+- "Saldado"
+
+Avoid technical terminology in user-facing messages.

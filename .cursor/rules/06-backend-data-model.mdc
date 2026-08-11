@@ -1,0 +1,83 @@
+---
+description: Backend and persistence rules
+globs:
+  - "**/*.sql"
+  - "**/*Repository*.kt"
+  - "**/*DataSource*.kt"
+  - "**/*Dto*.kt"
+alwaysApply: false
+---
+
+# Backend and Persistence
+
+The backend is the source of truth for shared group data.
+
+## Conceptual entities
+
+Expected core relationships:
+
+```text
+User
+  │
+  └── GroupMember ── Group
+                       │
+                       └── Expense
+                              │
+                              └── ExpenseSplit
+```
+
+Do not duplicate derived balances as authoritative data unless there is a demonstrated performance requirement.
+
+Balances should be derivable from expenses.
+
+## IDs
+
+Use stable unique IDs.
+
+Do not use display names as identifiers.
+
+Do not expose sequential IDs as security mechanisms.
+
+## Timestamps
+
+Persist creation/update timestamps consistently.
+
+Use server-generated timestamps where supported and appropriate.
+
+## Currency
+
+Persist currency explicitly.
+
+MVP:
+
+```text
+ARS
+```
+
+Do not implement currency conversion.
+
+A group should have a defined currency.
+
+## Soft deletion
+
+Do not introduce soft deletion automatically.
+
+If audit/recovery requirements later justify it, design it deliberately.
+
+## Mapping
+
+Backend DTOs/models should be mapped into domain models.
+
+Do not let database SDK types leak throughout the application.
+
+## Derived data
+
+Prefer calculating:
+
+- totals,
+- balances,
+- settlement suggestions
+
+from expenses rather than storing redundant values.
+
+If derived values are cached later, define invalidation/recalculation rules explicitly.

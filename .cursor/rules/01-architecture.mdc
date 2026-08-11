@@ -1,0 +1,101 @@
+---
+description: Architecture and layering rules for Cuentas claras
+globs:
+  - "**/*.kt"
+alwaysApply: false
+---
+
+# Architecture
+
+Use a pragmatic layered architecture:
+
+```text
+UI
+ ↓
+Presentation / ViewModel
+ ↓
+Domain
+ ↓
+Data / Repository
+ ↓
+Remote or Local data source
+```
+
+The exact package structure may vary, but responsibilities must remain clear.
+
+## UI
+
+UI code must:
+
+- Render state.
+- Send user intents/events upward.
+- Avoid financial/business calculations.
+- Avoid direct database/network calls.
+- Avoid embedding authorization rules.
+- Avoid duplicating domain logic.
+
+Compose screens should consume ViewModel state and emit events.
+
+## ViewModel
+
+ViewModels should:
+
+- Coordinate UI state.
+- Call use cases/domain operations.
+- Expose observable state using StateFlow or an equivalent approach.
+- Handle loading, success, empty and error states explicitly.
+- Avoid becoming a "god class".
+
+Do not put complex financial algorithms inside ViewModels.
+
+## Domain
+
+The domain layer contains:
+
+- Business entities.
+- Value objects.
+- Business rules.
+- Balance calculation.
+- Settlement calculation.
+- Expense validation.
+- Use cases.
+
+Domain logic should be as independent from Android as reasonably possible.
+
+Prefer pure functions for calculations.
+
+## Data
+
+Repositories define the application's data access boundary.
+
+Data sources handle:
+
+- API/database SDK interaction.
+- DTO mapping.
+- Serialization.
+- Persistence-specific details.
+
+Do not leak backend SDK models into the domain layer.
+
+## Dependency direction
+
+Dependencies should point inward:
+
+```text
+UI → Presentation → Domain ← Data
+```
+
+The domain must not depend on Compose, Android UI, Supabase/Firebase SDKs or database-specific models.
+
+## Overengineering
+
+Do not introduce:
+
+- Generic repositories for every imaginable data source.
+- Excessive interfaces with one implementation.
+- Event buses.
+- Global mutable state.
+- Unnecessary service locators.
+- Complex dependency injection solely for architectural appearance.
+
+Use abstractions where they provide testability, isolation or a meaningful boundary.

@@ -1,0 +1,75 @@
+---
+description: Testing strategy and quality gates
+globs:
+  - "**/*Test.kt"
+  - "**/*Spec.kt"
+  - "**/*.kt"
+alwaysApply: false
+---
+
+# Testing
+
+Tests are part of the implementation, not an afterthought.
+
+## Priority
+
+Testing priority:
+
+1. Financial domain logic.
+2. Authorization/security-sensitive behavior.
+3. Repository/data mapping.
+4. ViewModel state transitions.
+5. Critical UI flows.
+
+## Financial tests
+
+Balance and settlement calculations require comprehensive unit tests.
+
+At minimum test:
+
+- Two people, one expense.
+- Two people, multiple expenses.
+- Three people.
+- Four or more people.
+- One person paying everything.
+- Everyone paying equally.
+- Multiple creditors.
+- Multiple debtors.
+- Zero balances.
+- Uneven divisions and remainder handling.
+- Expense editing.
+- Expense deletion.
+- Smallest currency units.
+- Large amounts.
+- Multiple expenses cancelling each other.
+
+## Property/invariant testing
+
+Where practical, test invariants such as:
+
+```text
+sum(splits) == expense amount
+sum(balances) == 0
+```
+
+and ensure settlement application produces zero balances.
+
+## Test quality
+
+Prefer tests that describe business behavior:
+
+```text
+when one member pays an equal shared expense, the other member owes half
+```
+
+over implementation details.
+
+Avoid brittle tests tied to private implementation.
+
+## Before finishing a change
+
+Run the narrowest relevant checks first, then the full test suite when practical.
+
+Do not claim a change is complete if relevant tests fail.
+
+If tests cannot be run, explicitly state why.

@@ -1,0 +1,92 @@
+---
+description: Authentication, authorization and data security rules
+globs:
+  - "**/*.kt"
+  - "**/*.sql"
+  - "**/*.json"
+  - "**/*.toml"
+alwaysApply: false
+---
+
+# Security and Data Access
+
+Security is enforced at the backend/data layer, not only in the Android UI.
+
+## Authentication
+
+Use the selected authentication provider.
+
+Never implement custom password storage.
+
+Never log:
+
+- passwords,
+- authentication tokens,
+- refresh tokens,
+- secrets.
+
+## Authorization
+
+A user must only access groups they belong to.
+
+Membership must be validated server-side.
+
+Do not rely on:
+
+```text
+if (userIsMember) { ... }
+```
+
+in Android as the only security mechanism.
+
+The backend/database authorization policy is authoritative.
+
+## Group access
+
+For every group-scoped operation verify membership/authorization server-side:
+
+- Read group.
+- Read members.
+- Read expenses.
+- Create expense.
+- Update expense.
+- Delete expense.
+- Join group.
+- Manage group.
+
+## Ownership
+
+The group OWNER may have additional permissions.
+
+Do not assume the client can enforce ownership safely.
+
+## Invitation codes
+
+Invitation codes should be:
+
+- sufficiently unpredictable,
+- validated server-side,
+- scoped to the group,
+- resistant to trivial enumeration where practical.
+
+Do not expose internal database identifiers as invitation secrets.
+
+## Secrets
+
+Never commit:
+
+- API private keys.
+- Service-role keys.
+- passwords.
+- signing keys.
+- production credentials.
+
+Public client configuration is not automatically a secret, but privileged backend credentials must never be shipped in the Android app.
+
+## User data
+
+Only store data required by the product.
+
+Do not collect unnecessary personal information.
+
+Avoid logging personal or financial data unless required for diagnostics, and sanitize logs accordingly.

@@ -1,0 +1,77 @@
+---
+description: Core engineering principles for Cuentas claras
+globs:
+alwaysApply: true
+---
+
+# Cuentas claras — Project Principles
+
+## Role
+
+Act as a Senior Android Engineer, Software Architect and Product Engineer.
+
+The application is an Android app for shared expenses between small groups, couples and families.
+
+The primary priorities are:
+
+1. Correctness of financial/business logic.
+2. Security and authorization.
+3. Simplicity and maintainability.
+4. Excellent UX.
+5. Testability.
+6. Accessibility.
+7. Incremental delivery.
+8. Avoiding overengineering.
+
+## General rules
+
+- Prefer simple, explicit solutions over clever abstractions.
+- Do not introduce dependencies without a concrete reason.
+- Do not create abstractions "for future use" unless they protect an important domain boundary.
+- Keep business logic independent from Android UI and persistence concerns.
+- Keep functions small and focused on one responsibility.
+- Prefer immutable data structures and unidirectional data flow.
+- Never silently change business behavior to make a test or implementation pass.
+- When requirements are ambiguous, identify the ambiguity and explain the available options before implementing behavior that could affect financial correctness.
+- Preserve existing working behavior unless the requested change requires otherwise.
+- Do not rewrite unrelated code.
+- Do not leave dead code, temporary debug code, or unnecessary TODOs.
+
+## Money
+
+Money is never represented using Float or Double.
+
+Prefer integer minor units:
+
+```kotlin
+data class Money(
+    val amountMinor: Long,
+    val currency: Currency
+)
+```
+
+or an equivalent safe representation.
+
+Currency must be explicit in financial domain objects.
+
+Never use floating-point arithmetic for balances, splits or settlements.
+
+## Date and time
+
+Use explicit date/time types appropriate to the domain.
+
+Do not encode a month as a string such as "August 2026" in persistence.
+
+A period/month should be derived from an expense date.
+
+Be explicit about timezone behavior.
+
+## Changes
+
+Before making a substantial architectural change:
+
+1. Inspect the repository.
+2. Identify the existing conventions.
+3. Explain the change briefly.
+4. Make the smallest coherent change.
+5. Run relevant tests/checks.

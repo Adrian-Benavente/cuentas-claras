@@ -1,0 +1,130 @@
+---
+description: Critical rules for expenses, balances and settlements
+globs:
+  - "**/*Expense*.kt"
+  - "**/*Balance*.kt"
+  - "**/*Settlement*.kt"
+  - "**/*Money*.kt"
+  - "**/domain/**/*.kt"
+alwaysApply: false
+---
+
+# Financial Domain Rules
+
+This is the most critical rule set in the project.
+
+Financial calculations must be deterministic, testable and independent from UI and persistence.
+
+## Expense
+
+An expense must have, at minimum:
+
+- id
+- groupId
+- description
+- amount
+- paidBy
+- date
+- createdBy
+- createdAt
+- updatedAt
+
+For MVP, every active group member participates equally in every expense.
+
+## Equal split
+
+For an expense:
+
+```text
+share = total / numberOfParticipants
+```
+
+Never use floating-point arithmetic.
+
+If an amount cannot be divided exactly into minor units, define and test a deterministic rounding/remainder policy.
+
+The remainder must never disappear.
+
+Example:
+
+```text
+100 cents / 3 people
+```
+
+must produce allocations whose sum is exactly:
+
+```text
+100 cents
+```
+
+## Balance
+
+For each participant:
+
+```text
+balance = amountPaid - amountOwed
+```
+
+Interpretation:
+
+```text
+balance > 0 → should receive money
+balance < 0 → should pay money
+balance = 0 → settled
+```
+
+Do not invert this convention in different parts of the application.
+
+## Settlements
+
+Settlement calculation transforms balances into transfers.
+
+Example:
+
+```text
+A +100
+B +50
+C -80
+D -70
+```
+
+The resulting transfers must:
+
+1. Never transfer money to a debtor.
+2. Never require a creditor to pay.
+3. Conserve total money.
+4. Bring all balances to zero within the defined minor-unit precision.
+5. Never create or destroy money.
+
+A simple greedy creditor/debtor matching algorithm is acceptable unless a stronger requirement is introduced.
+
+## Invariants
+
+Every financial calculation must preserve:
+
+```text
+sum(expense splits) == expense amount
+sum(all balances) == 0
+sum(settlement transfers) == 0 net
+```
+
+These invariants should be explicitly tested.
+
+## Editing and deleting expenses
+
+Editing or deleting an expense must recalculate balances from the source-of-truth expenses.
+
+Do not mutate cached balances as the only source of truth.
+
+## No hidden financial behavior
+
+Never:
+
+- silently round money,
+- silently discard remainder cents,
+- infer a payer,
+- change participants without explicit rules,
+- mix currencies,
+- use approximate comparisons for integer money.
+
+If a rule is undefined, stop and surface the ambiguity.

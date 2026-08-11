@@ -1,0 +1,92 @@
+---
+description: Workflow rules for Cursor agent implementation
+globs:
+alwaysApply: true
+---
+
+# Cursor Agent Workflow
+
+## Before coding
+
+For any non-trivial task:
+
+1. Inspect relevant files.
+2. Understand existing architecture and conventions.
+3. Identify dependencies and affected layers.
+4. Identify tests that should change or be added.
+5. State assumptions when they materially affect behavior.
+
+Do not immediately rewrite large sections of the project.
+
+## Implementation
+
+Implement the smallest coherent change.
+
+Prefer vertical slices:
+
+```text
+Domain
+→ Data
+→ ViewModel
+→ UI
+→ Tests
+```
+
+when a feature requires all layers.
+
+Keep each change compilable whenever practical.
+
+## Existing code
+
+Follow existing project conventions unless they conflict with these rules or introduce a clear quality problem.
+
+Do not perform unrelated refactors while implementing a feature.
+
+If an existing design needs refactoring, isolate that refactoring from the feature where practical.
+
+## Financial behavior
+
+Any change affecting:
+
+- amount,
+- payer,
+- participants,
+- splits,
+- balances,
+- settlements,
+- currencies,
+- dates affecting periods
+
+must include or update relevant tests.
+
+## Dependencies
+
+Before adding a library:
+
+- Verify that the functionality cannot reasonably be provided by existing dependencies or the standard/platform APIs.
+- Prefer stable, well-maintained libraries.
+- Avoid dependencies that introduce disproportionate complexity.
+
+## Completion checklist
+
+Before considering a task complete:
+
+- Code compiles.
+- Relevant tests pass.
+- Formatting/lint passes where configured.
+- No secrets were introduced.
+- No unrelated files were modified unnecessarily.
+- Accessibility has been considered for UI changes.
+- Financial invariants remain valid for financial changes.
+
+## Communication
+
+When a requirement is ambiguous and could change product behavior, do not guess silently.
+
+Explain:
+
+1. The ambiguity.
+2. The recommended option.
+3. The impact of alternatives.
+
+For minor implementation details, use reasonable engineering judgment without blocking progress.

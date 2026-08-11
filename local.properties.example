@@ -1,0 +1,8 @@
+# Copy to local.properties and fill in real values.
+# local.properties is gitignored.
+
+sdk.dir=/path/to/Android/Sdk
+
+supabase.url=https://YOUR_PROJECT.supabase.co
+supabase.anon.key=YOUR_SUPABASE_ANON_KEY
+google.web.client.id=YOUR_GOOGLE_WEB_CLIENT_ID.apps.googleusercontent.com
