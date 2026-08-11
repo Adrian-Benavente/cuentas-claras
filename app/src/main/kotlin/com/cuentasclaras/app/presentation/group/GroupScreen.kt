@@ -48,6 +48,7 @@ import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.FloatingActionButton
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.ListItem
@@ -79,6 +80,8 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.Lifecycle
@@ -543,11 +546,13 @@ private fun SummaryTab(
                 )
             }
         }
-        items(content.summary.memberBalances) { balance ->
-            MemberBalanceCard(
-                balance = balance,
-                displayName = displayNameFor(balance.userId, content.members),
-            )
+        if (content.summary.memberBalances.isNotEmpty()) {
+            item {
+                MemberBalanceTable(
+                    balances = content.summary.memberBalances,
+                    members = content.members,
+                )
+            }
         }
         if (content.summary.suggestedTransfers.isNotEmpty()) {
             item {
@@ -688,35 +693,113 @@ private fun PeriodMonthPickerDialog(
 }
 
 @Composable
-private fun MemberBalanceCard(balance: MemberBalance, displayName: String) {
+private fun MemberBalanceTable(
+    balances: List<MemberBalance>,
+    members: List<GroupMember>,
+) {
+    Column(
+        modifier = Modifier.fillMaxWidth(),
+        verticalArrangement = Arrangement.spacedBy(4.dp),
+    ) {
+        Text("Por persona", style = MaterialTheme.typography.titleMedium)
+        BalanceTableHeader()
+        HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+        balances.forEach { balance ->
+            BalanceTableRow(
+                balance = balance,
+                displayName = displayNameFor(balance.userId, members),
+            )
+        }
+    }
+}
+
+@Composable
+private fun BalanceTableHeader() {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = 4.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Text(
+            "Persona",
+            style = MaterialTheme.typography.labelSmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.weight(1.3f),
+        )
+        Text(
+            "Pagó",
+            style = MaterialTheme.typography.labelSmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            textAlign = TextAlign.End,
+            modifier = Modifier.weight(1f),
+        )
+        Text(
+            "Le toca",
+            style = MaterialTheme.typography.labelSmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            textAlign = TextAlign.End,
+            modifier = Modifier.weight(1f),
+        )
+        Text(
+            "Saldo",
+            style = MaterialTheme.typography.labelSmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            textAlign = TextAlign.End,
+            modifier = Modifier.weight(1f),
+        )
+    }
+}
+
+@Composable
+private fun BalanceTableRow(balance: MemberBalance, displayName: String) {
     val balanceLabel = when {
         balance.balance.isPositive() -> "Debe recibir ${MoneyFormatter.format(balance.balance.abs())}"
         balance.balance.isNegative() -> "Debe pagar ${MoneyFormatter.format(balance.balance.abs())}"
         else -> "Saldado"
     }
-    Column(
+    Row(
         modifier = Modifier
             .fillMaxWidth()
+            .padding(vertical = 6.dp)
             .semantics {
                 contentDescription =
                     "$displayName. Pagó ${MoneyFormatter.format(balance.amountPaid)}. " +
                         "Le corresponde ${MoneyFormatter.format(balance.amountOwed)}. $balanceLabel"
             },
+        verticalAlignment = Alignment.CenterVertically,
     ) {
-        Text(displayName, style = MaterialTheme.typography.titleMedium)
-        Text("Pagó: ${MoneyFormatter.format(balance.amountPaid)}")
-        Text("Le corresponde: ${MoneyFormatter.format(balance.amountOwed)}")
         Text(
-            text = "Saldo: ${MoneyFormatter.format(balance.balance, withSign = true)}",
+            displayName,
+            style = MaterialTheme.typography.bodyMedium,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+            modifier = Modifier.weight(1.3f),
+        )
+        Text(
+            MoneyFormatter.format(balance.amountPaid),
+            style = MaterialTheme.typography.bodyMedium,
+            textAlign = TextAlign.End,
+            modifier = Modifier.weight(1f),
+        )
+        Text(
+            MoneyFormatter.format(balance.amountOwed),
+            style = MaterialTheme.typography.bodyMedium,
+            textAlign = TextAlign.End,
+            modifier = Modifier.weight(1f),
+        )
+        Text(
+            MoneyFormatter.format(balance.balance, withSign = true),
+            style = MaterialTheme.typography.bodyMedium,
             fontWeight = FontWeight.SemiBold,
+            textAlign = TextAlign.End,
             color = when {
                 balance.balance.isPositive() -> MaterialTheme.colorScheme.primary
                 balance.balance.isNegative() -> MaterialTheme.colorScheme.error
                 else -> MaterialTheme.colorScheme.onSurface
             },
+            modifier = Modifier.weight(1f),
         )
-        Text(balanceLabel, style = MaterialTheme.typography.bodySmall)
-        Spacer(Modifier.height(4.dp))
     }
 }
 
