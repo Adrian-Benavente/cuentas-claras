@@ -13,6 +13,7 @@ object UserFacingError {
         Settlement,
         RemoveMember,
         PeriodClose,
+        GroupAvatar,
         Generic,
     }
 
@@ -35,6 +36,9 @@ object UserFacingError {
             "Este período está cerrado. Reabrilo para hacer cambios."
         message.contains("only owner can close") || message.contains("only owner can reopen") ->
             "Solo el administrador puede cerrar o reabrir el período."
+        message.contains("only owner can set group avatar") ||
+            message.contains("only owner can clear group avatar") ->
+            "Solo el administrador puede cambiar la foto del grupo."
         message.contains("not authenticated") ||
             message.contains("jwt") ||
             message.contains("session") && message.contains("expired") ->
@@ -83,6 +87,7 @@ object UserFacingError {
         Context.Settlement -> "No pudimos registrar el pago. Intentá de nuevo."
         Context.RemoveMember -> "No pudimos eliminar al miembro. Intentá de nuevo."
         Context.PeriodClose -> "No pudimos cambiar el estado del período. Intentá de nuevo."
+        Context.GroupAvatar -> "No pudimos actualizar la foto del grupo. Intentá de nuevo."
         Context.Generic -> "Algo salió mal. Intentá de nuevo."
     }
 }

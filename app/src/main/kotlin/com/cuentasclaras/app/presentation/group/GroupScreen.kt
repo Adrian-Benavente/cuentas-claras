@@ -4,6 +4,10 @@ import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.Context
 import android.content.Intent
+import android.net.Uri
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.PickVisualMediaRequest
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -14,6 +18,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
@@ -24,6 +29,7 @@ import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Share
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.AssistChip
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
@@ -63,6 +69,7 @@ import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.cuentasclaras.app.presentation.components.FullScreenLoading
 import com.cuentasclaras.app.presentation.components.FullScreenMessage
+import com.cuentasclaras.app.presentation.components.GroupAvatarImage
 import com.cuentasclaras.app.presentation.components.OfflineBanner
 import com.cuentasclaras.app.presentation.components.UiState
 import com.cuentasclaras.app.util.InviteShare
@@ -126,9 +133,20 @@ fun GroupScreen(
 
     Scaffold(
         topBar = {
+            val group = (state as? UiState.Content)?.data?.group
             TopAppBar(
                 title = {
-                    Text((state as? UiState.Content)?.data?.group?.name ?: "Grupo")
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        if (group != null) {
+                            GroupAvatarImage(
+                                avatarUrl = group.avatarUrl,
+                                groupName = group.name,
+                                size = 32.dp,
+                            )
+                            Spacer(Modifier.width(10.dp))
+                        }
+                        Text(group?.name ?: "Grupo")
+                    }
                 },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
@@ -209,6 +227,8 @@ fun GroupScreen(
                             highlightInvite = focusInvite || ui.data.members.size < 2,
                             onCodeCopied = { snackbarHostState.showSnackbar("Código copiado") },
                             onRequestRotateCode = { showRotateConfirm = true },
+                            onPickAvatar = viewModel::setAvatar,
+                            onClearAvatar = viewModel::clearAvatar,
                             onLogout = onLogout,
                         )
                     }
@@ -777,10 +797,18 @@ private fun SettingsTab(
     highlightInvite: Boolean,
     onCodeCopied: suspend () -> Unit,
     onRequestRotateCode: () -> Unit,
+    onPickAvatar: (Uri) -> Unit,
+    onClearAvatar: () -> Unit,
     onLogout: () -> Unit,
 ) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
+    val photoPicker = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.PickVisualMedia(),
+    ) { uri ->
+        if (uri != null) onPickAvatar(uri)
+    }
+
     Column(Modifier.padding(24.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
         if (highlightInvite) {
             Text(
@@ -789,6 +817,51 @@ private fun SettingsTab(
                 fontWeight = FontWeight.Medium,
             )
         }
+
+        Text("Foto del grupo", style = MaterialTheme.typography.titleMedium)
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(12.dp),
+        ) {
+            GroupAvatarImage(
+                avatarUrl = content.group.avatarUrl,
+                groupName = content.group.name,
+                size = 72.dp,
+            )
+            if (content.isUpdatingAvatar) {
+                CircularProgressIndicator(modifier = Modifier.width(24.dp))
+            }
+        }
+        if (content.isOwner) {
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                OutlinedButton(
+                    onClick = {
+                        photoPicker.launch(
+                            PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly),
+                        )
+                    },
+                    enabled = !content.isUpdatingAvatar,
+                    modifier = Modifier.semantics { contentDescription = "Cambiar foto del grupo" },
+                ) {
+                    Text(if (content.group.avatarUrl.isNullOrBlank()) "Agregar foto" else "Cambiar foto")
+                }
+                if (!content.group.avatarUrl.isNullOrBlank()) {
+                    TextButton(
+                        onClick = onClearAvatar,
+                        enabled = !content.isUpdatingAvatar,
+                        modifier = Modifier.semantics { contentDescription = "Quitar foto del grupo" },
+                    ) {
+                        Text("Quitar foto")
+                    }
+                }
+            }
+            Text(
+                "Se recorta al centro en cuadrado y se muestra en círculo.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
+
         Text("Código de invitación", style = MaterialTheme.typography.titleMedium)
         Text(
             content.group.inviteCode,

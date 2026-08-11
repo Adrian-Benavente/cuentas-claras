@@ -1,5 +1,6 @@
 package com.cuentasclaras.app.presentation.group
 
+import android.net.Uri
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
@@ -10,6 +11,7 @@ import com.cuentasclaras.app.data.offline.ConnectivityMonitor
 import com.cuentasclaras.app.data.period.PeriodRepository
 import com.cuentasclaras.app.data.settlement.SettlementRepository
 import com.cuentasclaras.app.presentation.components.UiState
+import com.cuentasclaras.app.util.GroupAvatarLoader
 import com.cuentasclaras.app.util.OfflineMessages
 import com.cuentasclaras.app.util.UserFacingError
 import com.cuentasclaras.domain.finance.PeriodGate
@@ -25,6 +27,7 @@ import com.cuentasclaras.domain.model.SettlementPaymentId
 import com.cuentasclaras.domain.model.SuggestedTransfer
 import com.cuentasclaras.domain.model.UserId
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharedFlow
@@ -32,6 +35,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import java.time.YearMonth
 import javax.inject.Inject
 
@@ -47,6 +51,7 @@ data class GroupContent(
     /** Period expenses whose equal split was saved with fewer members than the group has now. */
     val expensesMissingMembers: Int = 0,
     val fromCache: Boolean = false,
+    val isUpdatingAvatar: Boolean = false,
 ) {
     val isPeriodClosed: Boolean get() = periodStatus == PeriodStatus.CLOSED
 }
@@ -60,6 +65,7 @@ class GroupViewModel @Inject constructor(
     private val periodRepository: PeriodRepository,
     private val authRepository: AuthRepository,
     private val connectivityMonitor: ConnectivityMonitor,
+    private val groupAvatarLoader: GroupAvatarLoader,
 ) : ViewModel() {
 
     private val groupId = GroupId(checkNotNull(savedStateHandle["groupId"]))
@@ -205,6 +211,46 @@ class GroupViewModel @Inject constructor(
                 }
                 .onFailure { error ->
                     _messages.tryEmit(UserFacingError.from(error, UserFacingError.Context.RemoveMember))
+                }
+        }
+    }
+
+    fun setAvatar(uri: Uri) {
+        val content = (_state.value as? UiState.Content)?.data ?: return
+        if (!content.isOwner) {
+            _messages.tryEmit("Solo el administrador puede cambiar la foto del grupo.")
+            return
+        }
+        if (!requireOnline()) return
+        viewModelScope.launch {
+            _state.value = UiState.Content(content.copy(isUpdatingAvatar = true))
+            runCatching {
+                val bytes = withContext(Dispatchers.IO) { groupAvatarLoader.processUri(uri) }
+                groupRepository.uploadGroupAvatar(groupId, bytes)
+            }.onSuccess {
+                _messages.tryEmit("Foto del grupo actualizada")
+                refresh(showLoading = false)
+            }.onFailure { error ->
+                _state.value = UiState.Content(content.copy(isUpdatingAvatar = false))
+                _messages.tryEmit(UserFacingError.from(error, UserFacingError.Context.GroupAvatar))
+            }
+        }
+    }
+
+    fun clearAvatar() {
+        val content = (_state.value as? UiState.Content)?.data ?: return
+        if (!content.isOwner || content.group.avatarUrl.isNullOrBlank()) return
+        if (!requireOnline()) return
+        viewModelScope.launch {
+            _state.value = UiState.Content(content.copy(isUpdatingAvatar = true))
+            runCatching { groupRepository.clearGroupAvatar(groupId) }
+                .onSuccess {
+                    _messages.tryEmit("Foto del grupo eliminada")
+                    refresh(showLoading = false)
+                }
+                .onFailure { error ->
+                    _state.value = UiState.Content(content.copy(isUpdatingAvatar = false))
+                    _messages.tryEmit(UserFacingError.from(error, UserFacingError.Context.GroupAvatar))
                 }
         }
     }

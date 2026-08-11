@@ -4,9 +4,12 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
@@ -24,6 +27,7 @@ import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
@@ -35,6 +39,7 @@ import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.cuentasclaras.app.presentation.components.FullScreenLoading
 import com.cuentasclaras.app.presentation.components.FullScreenMessage
+import com.cuentasclaras.app.presentation.components.GroupAvatarImage
 import com.cuentasclaras.app.presentation.components.OfflineBanner
 import com.cuentasclaras.app.presentation.components.UiState
 import com.cuentasclaras.domain.model.Group
@@ -133,6 +138,13 @@ private fun GroupList(
             ListItem(
                 headlineContent = { Text(group.name) },
                 supportingContent = { Text("Moneda: ${group.currency.code}") },
+                leadingContent = {
+                    GroupAvatarImage(
+                        avatarUrl = group.avatarUrl,
+                        groupName = group.name,
+                        size = 40.dp,
+                    )
+                },
                 modifier = Modifier
                     .fillMaxWidth()
                     .clickable { onOpenGroup(group.id.value) }

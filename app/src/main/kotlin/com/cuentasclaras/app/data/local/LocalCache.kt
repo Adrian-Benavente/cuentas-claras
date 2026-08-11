@@ -175,6 +175,7 @@ private fun Group.toEntity() = GroupEntity(
     createdBy = createdBy.value,
     createdAt = createdAt.toString(),
     updatedAt = updatedAt.toString(),
+    avatarUrl = avatarUrl,
 )
 
 private fun GroupEntity.toDomain() = Group(
@@ -185,6 +186,7 @@ private fun GroupEntity.toDomain() = Group(
     createdBy = UserId(createdBy),
     createdAt = Instant.parse(createdAt),
     updatedAt = Instant.parse(updatedAt),
+    avatarUrl = avatarUrl,
 )
 
 private fun GroupMember.toEntity() = MemberEntity(

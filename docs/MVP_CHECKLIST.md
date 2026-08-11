@@ -13,6 +13,8 @@ Usá dos cuentas (email o Google) en emulador/dispositivo.
 ## Grupos e invitaciones
 
 - [ ] Usuario A crea un grupo y aterriza en **Configuración** (invitar)
+- [ ] OWNER puede **Agregar/Cambiar foto** del grupo (galería); se ve circular junto al nombre en Home y en la barra del grupo
+- [ ] OWNER puede **Quitar foto**
 - [ ] Con un solo miembro: no aparece FAB de gastos; Resumen/Gastos orientan a invitar
 - [ ] Ve el código, **Copiar** muestra snackbar "Código copiado"
 - [ ] **Compartir** abre share sheet con pasos + link `cuentasclaras://join/…`

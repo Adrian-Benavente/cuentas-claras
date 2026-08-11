@@ -30,6 +30,8 @@ Profiles of current co-members are readable. After someone is removed, their pro
 | Delete settlement payment | Member | RLS `settlement_payments_delete` + period-open trigger |
 | Close / reopen period | OWNER | RPC `close_group_period` / `reopen_group_period` |
 | Read period closures | Member | RLS `group_period_closures_select` |
+| Set / clear group avatar | OWNER | Storage `group-avatars` + RPC `set_group_avatar` / `clear_group_avatar` |
+| Read group avatar object | Member | Storage policy `group_avatars_select` (bucket also public for CDN URL) |
 | Read/update own profile | Self | RLS on `profiles` |
 | Read other profiles | Shared group membership | RLS `profiles_select` |
 

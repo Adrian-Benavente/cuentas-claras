@@ -10,6 +10,7 @@ data class Group(
     val createdBy: UserId,
     val createdAt: Instant,
     val updatedAt: Instant,
+    val avatarUrl: String? = null,
 )
 
 @JvmInline

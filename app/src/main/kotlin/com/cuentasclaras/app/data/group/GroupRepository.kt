@@ -1,5 +1,6 @@
 package com.cuentasclaras.app.data.group
 
+import com.cuentasclaras.app.BuildConfig
 import com.cuentasclaras.app.data.local.LocalCache
 import com.cuentasclaras.app.data.mapper.toDomain
 import com.cuentasclaras.app.data.offline.ConnectivityMonitor
@@ -18,6 +19,7 @@ import io.github.jan.supabase.postgrest.from
 import io.github.jan.supabase.postgrest.postgrest
 import io.github.jan.supabase.postgrest.query.Columns
 import io.github.jan.supabase.postgrest.rpc
+import io.github.jan.supabase.storage.storage
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
 import javax.inject.Inject
@@ -115,5 +117,52 @@ class GroupRepository @Inject constructor(
                 put("p_user_id", userId.value)
             },
         )
+    }
+
+    suspend fun uploadGroupAvatar(groupId: GroupId, jpegBytes: ByteArray): String {
+        val path = "${groupId.value}/avatar.jpg"
+        client.storage.from(BUCKET).upload(
+            path = path,
+            data = jpegBytes,
+        ) {
+            upsert = true
+            contentType = io.ktor.http.ContentType.Image.JPEG
+        }
+        val publicUrl = publicAvatarUrl(path)
+        client.postgrest.rpc(
+            function = "set_group_avatar",
+            parameters = buildJsonObject {
+                put("p_group_id", groupId.value)
+                put("p_avatar_url", publicUrl)
+            },
+        )
+        localCache.getGroup(groupId)?.let { cached ->
+            localCache.upsertGroup(cached.copy(avatarUrl = publicUrl))
+        }
+        return publicUrl
+    }
+
+    suspend fun clearGroupAvatar(groupId: GroupId) {
+        val path = "${groupId.value}/avatar.jpg"
+        runCatching {
+            client.storage.from(BUCKET).delete(listOf(path))
+        }
+        client.postgrest.rpc(
+            function = "clear_group_avatar",
+            parameters = buildJsonObject { put("p_group_id", groupId.value) },
+        )
+        localCache.getGroup(groupId)?.let { cached ->
+            localCache.upsertGroup(cached.copy(avatarUrl = null))
+        }
+    }
+
+    private fun publicAvatarUrl(path: String): String {
+        val base = BuildConfig.SUPABASE_URL.trimEnd('/')
+        val cacheBust = System.currentTimeMillis()
+        return "$base/storage/v1/object/public/$BUCKET/$path?t=$cacheBust"
+    }
+
+    private companion object {
+        const val BUCKET = "group-avatars"
     }
 }

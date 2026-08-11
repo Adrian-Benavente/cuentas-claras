@@ -41,6 +41,7 @@ fun GroupDto.toDomain(): Group = Group(
     createdBy = UserId(createdBy),
     createdAt = Instant.parse(createdAt),
     updatedAt = Instant.parse(updatedAt),
+    avatarUrl = avatarUrl,
 )
 
 fun GroupMemberDto.toDomain(): GroupMember = GroupMember(
