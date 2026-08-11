@@ -20,19 +20,19 @@ class HomeViewModel @Inject constructor(
     private val _state = MutableStateFlow<UiState<List<Group>>>(UiState.Loading)
     val state: StateFlow<UiState<List<Group>>> = _state.asStateFlow()
 
-    init {
-        refresh()
-    }
-
-    fun refresh() {
+    fun refresh(showLoading: Boolean = true) {
         viewModelScope.launch {
-            _state.value = UiState.Loading
+            if (showLoading || _state.value !is UiState.Content && _state.value !is UiState.Empty) {
+                _state.value = UiState.Loading
+            }
             runCatching { groupRepository.listMyGroups() }
                 .onSuccess { groups ->
                     _state.value = if (groups.isEmpty()) UiState.Empty else UiState.Content(groups)
                 }
                 .onFailure {
-                    _state.value = UiState.Error("No pudimos cargar tus grupos. Intentá de nuevo.")
+                    if (_state.value !is UiState.Content && _state.value !is UiState.Empty) {
+                        _state.value = UiState.Error("No pudimos cargar tus grupos. Intentá de nuevo.")
+                    }
                 }
         }
     }

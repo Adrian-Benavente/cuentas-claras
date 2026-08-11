@@ -49,13 +49,16 @@ class GroupViewModel @Inject constructor(
 
     private var selectedPeriod: YearMonth = YearMonth.now()
 
-    init {
-        refresh()
-    }
-
-    fun refresh() {
+    /**
+     * Reloads group data from the backend.
+     * Use [showLoading] = false when returning to this screen so existing
+     * content stays visible while expenses/summary update.
+     */
+    fun refresh(showLoading: Boolean = true) {
         viewModelScope.launch {
-            _state.value = UiState.Loading
+            if (showLoading || _state.value !is UiState.Content) {
+                _state.value = UiState.Loading
+            }
             runCatching {
                 val group = groupRepository.getGroup(groupId)
                 val members = groupRepository.listMembers(groupId)
@@ -82,7 +85,9 @@ class GroupViewModel @Inject constructor(
             }.onSuccess { content ->
                 _state.value = UiState.Content(content)
             }.onFailure {
-                _state.value = UiState.Error("No pudimos cargar el grupo. Intentá de nuevo.")
+                if (_state.value !is UiState.Content) {
+                    _state.value = UiState.Error("No pudimos cargar el grupo. Intentá de nuevo.")
+                }
             }
         }
     }
