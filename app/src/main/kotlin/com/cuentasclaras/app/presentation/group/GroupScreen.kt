@@ -25,6 +25,8 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.pager.HorizontalPager
+import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
@@ -63,7 +65,6 @@ import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
-import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -128,13 +129,21 @@ fun GroupScreen(
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
     val isOnline by viewModel.isOnline.collectAsStateWithLifecycle()
-    var tabIndex by rememberSaveable { mutableIntStateOf(if (focusInvite) 3 else 0) }
+    val pagerState = rememberPagerState(
+        initialPage = if (focusInvite) 3 else 0,
+        pageCount = { groupTabs.size },
+    )
+    val tabScope = rememberCoroutineScope()
     val snackbarHostState = remember { SnackbarHostState() }
     var showRotateConfirm by remember { mutableStateOf(false) }
     var showClosePeriodConfirm by remember { mutableStateOf(false) }
     var showReopenPeriodConfirm by remember { mutableStateOf(false) }
     val showOfflineBanner = !isOnline ||
         ((state as? UiState.Content)?.data?.fromCache == true)
+
+    fun goToInviteTab() {
+        tabScope.launch { pagerState.animateScrollToPage(3) }
+    }
 
     val lifecycleOwner = LocalLifecycleOwner.current
     DisposableEffect(lifecycleOwner, viewModel) {
@@ -194,7 +203,7 @@ fun GroupScreen(
                         selectedPeriod = content.period,
                         selectedPeriodClosed = content.isPeriodClosed,
                     )
-                if (tabIndex == 1 && canAddExpenses) {
+                if (pagerState.currentPage == 1 && canAddExpenses) {
                     FloatingActionButton(
                         onClick = onAddExpense,
                         containerColor = MaterialTheme.colorScheme.primary,
@@ -224,11 +233,13 @@ fun GroupScreen(
                 is UiState.Content -> {
                     Column(Modifier.padding(padding).fillMaxSize()) {
                         OfflineBanner(visible = showOfflineBanner)
-                        PrimaryTabRow(selectedTabIndex = tabIndex) {
+                        PrimaryTabRow(selectedTabIndex = pagerState.currentPage) {
                             groupTabs.forEachIndexed { index, tab ->
                                 Tab(
-                                    selected = tabIndex == index,
-                                    onClick = { tabIndex = index },
+                                    selected = pagerState.currentPage == index,
+                                    onClick = {
+                                        tabScope.launch { pagerState.animateScrollToPage(index) }
+                                    },
                                     icon = {
                                         Icon(
                                             imageVector = tab.icon,
@@ -241,38 +252,46 @@ fun GroupScreen(
                                 )
                             }
                         }
-                        when (tabIndex) {
-                            0 -> SummaryTab(
-                                content = ui.data,
-                                onPrevious = viewModel::previousPeriod,
-                                onNext = viewModel::nextPeriod,
-                                onSelectPeriod = viewModel::setPeriod,
-                                onMarkSettled = viewModel::markSettled,
-                                onUndoPayment = viewModel::undoPayment,
-                                onRequestClosePeriod = { showClosePeriodConfirm = true },
-                                onRequestReopenPeriod = { showReopenPeriodConfirm = true },
-                                onGoToInvite = { tabIndex = 3 },
-                            )
-                            1 -> ExpensesTab(
-                                content = ui.data,
-                                onOpenExpense = onOpenExpense,
-                                onAddExpense = onAddExpense,
-                                onGoToInvite = { tabIndex = 3 },
-                            )
-                            2 -> MembersTab(
-                                content = ui.data,
-                                onRemoveMember = viewModel::removeMember,
-                            )
-                            3 -> SettingsTab(
-                                content = ui.data,
-                                highlightInvite = focusInvite || ui.data.members.size < 2,
-                                onCodeCopied = { snackbarHostState.showSnackbar("Código copiado") },
-                                onRequestRotateCode = { showRotateConfirm = true },
-                                onPickAvatar = viewModel::setAvatar,
-                                onClearAvatar = viewModel::clearAvatar,
-                                onSetTheme = viewModel::setTheme,
-                                onLogout = onLogout,
-                            )
+                        HorizontalPager(
+                            state = pagerState,
+                            modifier = Modifier
+                                .weight(1f)
+                                .fillMaxWidth(),
+                            beyondViewportPageCount = 0,
+                        ) { page ->
+                            when (page) {
+                                0 -> SummaryTab(
+                                    content = ui.data,
+                                    onPrevious = viewModel::previousPeriod,
+                                    onNext = viewModel::nextPeriod,
+                                    onSelectPeriod = viewModel::setPeriod,
+                                    onMarkSettled = viewModel::markSettled,
+                                    onUndoPayment = viewModel::undoPayment,
+                                    onRequestClosePeriod = { showClosePeriodConfirm = true },
+                                    onRequestReopenPeriod = { showReopenPeriodConfirm = true },
+                                    onGoToInvite = ::goToInviteTab,
+                                )
+                                1 -> ExpensesTab(
+                                    content = ui.data,
+                                    onOpenExpense = onOpenExpense,
+                                    onAddExpense = onAddExpense,
+                                    onGoToInvite = ::goToInviteTab,
+                                )
+                                2 -> MembersTab(
+                                    content = ui.data,
+                                    onRemoveMember = viewModel::removeMember,
+                                )
+                                3 -> SettingsTab(
+                                    content = ui.data,
+                                    highlightInvite = focusInvite || ui.data.members.size < 2,
+                                    onCodeCopied = { snackbarHostState.showSnackbar("Código copiado") },
+                                    onRequestRotateCode = { showRotateConfirm = true },
+                                    onPickAvatar = viewModel::setAvatar,
+                                    onClearAvatar = viewModel::clearAvatar,
+                                    onSetTheme = viewModel::setTheme,
+                                    onLogout = onLogout,
+                                )
+                            }
                         }
                     }
                 }
