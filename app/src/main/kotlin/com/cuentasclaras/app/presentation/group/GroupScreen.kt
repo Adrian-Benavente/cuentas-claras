@@ -258,6 +258,7 @@ fun GroupScreen(
                                 .weight(1f)
                                 .fillMaxWidth(),
                             beyondViewportPageCount = 0,
+                            verticalAlignment = Alignment.Top,
                         ) { page ->
                             when (page) {
                                 0 -> SummaryTab(
