@@ -20,6 +20,8 @@ Usá dos cuentas (email o Google) en emulador/dispositivo.
 - [ ] Usuario B se une pegando el código (o escribiéndolo)
 - [ ] (Opcional) Deep link: `adb shell am start -a android.intent.action.VIEW -d "cuentasclaras://join/CODIGO"`
 - [ ] Ambos ven al otro en Miembros
+- [ ] OWNER puede **Eliminar** a un MEMBER (confirmación); no aparece acción sobre el admin
+- [ ] Tras eliminar: desaparece de Miembros; gastos previos siguen en historial/resumen (como Ex-miembro si aplica)
 
 ## Gastos
 

@@ -30,6 +30,9 @@ balance = amountPaid - amountOwed
 
 Invariant: `sum(balances) == 0` for a single currency set.
 
+Period summary participants = **current members ∪ anyone in that period's expenses/payments**
+(so former members still appear until their historical rows no longer affect the viewed period).
+
 ## Settlements (suggested)
 
 Greedy matching of debtors to creditors. Suggested only — not recorded payments.
@@ -60,3 +63,9 @@ Settlement payments store `period_year` / `period_month` explicitly.
   Legacy expenses created while alone stay 100% on that member until edited and saved again
   (`update_expense` still allows re-splitting among current members).
 - Edit/delete recalculates balances from source expenses (no cached authoritative balances).
+
+## Membership changes
+
+- OWNER may remove a MEMBER via `remove_group_member` (not self, not OWNER).
+- Removing a member does **not** delete or re-split their past expenses.
+- After removal they disappear from Miembros but remain in period Resumen if still involved in that period's expenses/payments.

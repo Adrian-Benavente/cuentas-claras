@@ -8,6 +8,7 @@ import com.cuentasclaras.app.data.remote.JoinGroupResponse
 import com.cuentasclaras.domain.model.Group
 import com.cuentasclaras.domain.model.GroupId
 import com.cuentasclaras.domain.model.GroupMember
+import com.cuentasclaras.domain.model.UserId
 import io.github.jan.supabase.SupabaseClient
 import io.github.jan.supabase.postgrest.from
 import io.github.jan.supabase.postgrest.postgrest
@@ -70,5 +71,15 @@ class GroupRepository @Inject constructor(
             parameters = buildJsonObject { put("p_group_id", groupId.value) },
         )
         return response.decodeAs<String>().trim('"')
+    }
+
+    suspend fun removeMember(groupId: GroupId, userId: UserId) {
+        client.postgrest.rpc(
+            function = "remove_group_member",
+            parameters = buildJsonObject {
+                put("p_group_id", groupId.value)
+                put("p_user_id", userId.value)
+            },
+        )
     }
 }

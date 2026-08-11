@@ -135,6 +135,33 @@ class GroupViewModel @Inject constructor(
         }
     }
 
+    fun removeMember(userId: UserId) {
+        viewModelScope.launch {
+            runCatching { groupRepository.removeMember(groupId, userId) }
+                .onSuccess {
+                    _messages.tryEmit("Miembro eliminado")
+                    refresh(showLoading = false)
+                }
+                .onFailure { error ->
+                    val message = error.message.orEmpty().lowercase()
+                    _messages.tryEmit(
+                        when {
+                            message.contains("only owner") ->
+                                "Solo el administrador puede eliminar miembros."
+                            message.contains("cannot remove owner") ->
+                                "No se puede eliminar al administrador."
+                            message.contains("cannot remove yourself") ->
+                                "No podés eliminarte a vos mismo."
+                            message.contains("member not found") ->
+                                "Ese miembro ya no está en el grupo."
+                            else ->
+                                "No pudimos eliminar al miembro. Intentá de nuevo."
+                        },
+                    )
+                }
+        }
+    }
+
     private suspend fun loadContent(): GroupContent {
         val group = groupRepository.getGroup(groupId)
         val members = groupRepository.listMembers(groupId)

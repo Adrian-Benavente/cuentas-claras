@@ -386,6 +386,37 @@ class FinancialDomainTest {
             .isEqualTo(4_000L)
     }
 
+    @Test
+    fun periodSummary_includesFormerMemberFromExpenseSplits() {
+        val whenTogether = listOf(adrian, pareja)
+        val expenses = listOf(expense("e1", 10_000L, adrian, whenTogether))
+        // pareja left the group: only adrian remains as active member
+        val summary = PeriodSummaryCalculator.summarize(
+            expenses = expenses,
+            memberIds = listOf(adrian),
+            currency = ars,
+            period = java.time.YearMonth.of(2026, 8),
+        )
+        assertThat(summary.memberBalances.map { it.userId }).containsExactly(adrian, pareja)
+        assertThat(summary.memberBalances.sumOf { it.balance.amountMinor }).isEqualTo(0L)
+        assertThat(summary.memberBalances.first { it.userId == adrian }.balance.amountMinor)
+            .isEqualTo(5_000L)
+        assertThat(summary.memberBalances.first { it.userId == pareja }.balance.amountMinor)
+            .isEqualTo(-5_000L)
+        assertThat(summary.suggestedTransfers).hasSize(1)
+        assertThat(summary.suggestedTransfers.single().fromUserId).isEqualTo(pareja)
+        assertThat(summary.suggestedTransfers.single().toUserId).isEqualTo(adrian)
+    }
+
+    @Test
+    fun periodSummary_twoActiveMembers_unchanged() {
+        val members = listOf(adrian, pareja)
+        val expenses = listOf(expense("e1", 8_000L, adrian, members))
+        val summary = PeriodSummaryCalculator.summarize(expenses, members, ars)
+        assertThat(summary.memberBalances).hasSize(2)
+        assertThat(summary.memberBalances.sumOf { it.balance.amountMinor }).isEqualTo(0L)
+    }
+
 @Test
     fun money_rejectsCurrencyMismatch() {
         assertThrows(IllegalArgumentException::class.java) {

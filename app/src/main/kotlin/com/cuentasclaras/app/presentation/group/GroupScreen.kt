@@ -183,7 +183,10 @@ fun GroupScreen(
                             onAddExpense = onAddExpense,
                             onGoToInvite = { tabIndex = 3 },
                         )
-                        2 -> MembersTab(members = ui.data.members)
+                        2 -> MembersTab(
+                            content = ui.data,
+                            onRemoveMember = viewModel::removeMember,
+                        )
                         3 -> SettingsTab(
                             content = ui.data,
                             highlightInvite = focusInvite || ui.data.members.size < 2,
@@ -312,8 +315,7 @@ private fun SummaryTab(
         items(content.summary.memberBalances) { balance ->
             MemberBalanceCard(
                 balance = balance,
-                displayName = content.members.find { it.userId == balance.userId }?.displayName
-                    ?: balance.userId.value,
+                displayName = displayNameFor(balance.userId, content.members),
             )
         }
         if (content.summary.suggestedTransfers.isNotEmpty()) {
@@ -402,8 +404,8 @@ private fun TransferRow(
     members: List<GroupMember>,
     onMarkSettled: () -> Unit,
 ) {
-    val from = members.find { it.userId == transfer.fromUserId }?.displayName ?: transfer.fromUserId.value
-    val to = members.find { it.userId == transfer.toUserId }?.displayName ?: transfer.toUserId.value
+    val from = displayNameFor(transfer.fromUserId, members)
+    val to = displayNameFor(transfer.toUserId, members)
     val label = "$from debe ${MoneyFormatter.format(transfer.amount)} a $to"
     Row(
         modifier = Modifier.fillMaxWidth(),
@@ -433,8 +435,8 @@ private fun SettledPaymentRow(
     members: List<GroupMember>,
     onUndo: () -> Unit,
 ) {
-    val from = members.find { it.userId == payment.fromUserId }?.displayName ?: payment.fromUserId.value
-    val to = members.find { it.userId == payment.toUserId }?.displayName ?: payment.toUserId.value
+    val from = displayNameFor(payment.fromUserId, members)
+    val to = displayNameFor(payment.toUserId, members)
     val label = "✓ $from pagó ${MoneyFormatter.format(payment.amount)} a $to"
     Row(
         modifier = Modifier.fillMaxWidth(),
@@ -512,7 +514,7 @@ private fun ExpenseRow(
     members: List<GroupMember>,
     onOpenExpense: (String) -> Unit,
 ) {
-    val payer = members.find { it.userId == expense.paidBy }?.displayName ?: "Alguien"
+    val payer = displayNameFor(expense.paidBy, members)
     ListItem(
         headlineContent = { Text(expense.description) },
         supportingContent = { Text("Pagó $payer · ${expense.date}") },
@@ -527,7 +529,11 @@ private fun ExpenseRow(
 }
 
 @Composable
-private fun MembersTab(members: List<GroupMember>) {
+private fun MembersTab(
+    content: GroupContent,
+    onRemoveMember: (com.cuentasclaras.domain.model.UserId) -> Unit,
+) {
+    val members = content.members
     if (members.isEmpty()) {
         FullScreenMessage(
             title = "Sin miembros",
@@ -535,15 +541,78 @@ private fun MembersTab(members: List<GroupMember>) {
         )
         return
     }
+    var memberToRemove by remember { mutableStateOf<GroupMember?>(null) }
     LazyColumn(contentPadding = PaddingValues(16.dp)) {
+        item {
+            Text(
+                "Los gastos previos de alguien eliminado siguen contando en el resumen del período.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.padding(bottom = 8.dp),
+            )
+        }
         items(members, key = { it.userId.value }) { member ->
+            val canRemove = content.isOwner &&
+                member.role == MemberRole.MEMBER &&
+                member.userId != content.currentUserId
             ListItem(
                 headlineContent = { Text(member.displayName.ifBlank { member.userId.value }) },
                 supportingContent = {
                     Text(if (member.role == MemberRole.OWNER) "Administrador" else "Miembro")
                 },
+                trailingContent = {
+                    if (canRemove) {
+                        TextButton(
+                            onClick = { memberToRemove = member },
+                            modifier = Modifier.semantics {
+                                contentDescription = "Eliminar a ${member.displayName}"
+                            },
+                        ) {
+                            Text("Eliminar")
+                        }
+                    }
+                },
             )
         }
+    }
+    val pending = memberToRemove
+    if (pending != null) {
+        AlertDialog(
+            onDismissRequest = { memberToRemove = null },
+            title = { Text("Eliminar miembro") },
+            text = {
+                Text(
+                    "¿Eliminar a ${pending.displayName.ifBlank { "este miembro" }} del grupo? " +
+                        "Sus gastos previos seguirán en el historial y el resumen.",
+                )
+            },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        onRemoveMember(pending.userId)
+                        memberToRemove = null
+                    },
+                ) {
+                    Text("Eliminar")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { memberToRemove = null }) {
+                    Text("Cancelar")
+                }
+            },
+        )
+    }
+}
+
+private fun displayNameFor(
+    userId: com.cuentasclaras.domain.model.UserId,
+    members: List<GroupMember>,
+): String {
+    val member = members.find { it.userId == userId }
+    return when {
+        member != null -> member.displayName.ifBlank { "Ex-miembro" }
+        else -> "Ex-miembro"
     }
 }
 

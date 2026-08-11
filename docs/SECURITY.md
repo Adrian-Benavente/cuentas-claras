@@ -9,6 +9,8 @@ A user is a member of a group if a row exists in `group_members` for `(group_id,
 
 Helper: `is_group_member(group_id)`, `is_group_owner(group_id)`.
 
+Profiles of current co-members are readable. After someone is removed, their profile remains readable to remaining members if they still appear in that group's expenses, splits, or settlement payments.
+
 ## Operations
 
 | Action | Who | Enforcement |
@@ -18,6 +20,7 @@ Helper: `is_group_member(group_id)`, `is_group_owner(group_id)`.
 | Read expenses / splits | Member | RLS on `expenses` / `expense_splits` |
 | Create group | Authenticated | RPC `create_group` → OWNER membership + invite code |
 | Join group | Authenticated | RPC `join_group_by_code(p_invite_code)` |
+| Remove member | OWNER | RPC `remove_group_member` (MEMBER only; not self) |
 | Rotate invite code | OWNER | RPC `rotate_invite_code` |
 | Create expense | Member | RPC `create_expense` (≥2 members; payer must be member; splits must sum) |
 | Update expense | Creator or OWNER | RPC `update_expense` |

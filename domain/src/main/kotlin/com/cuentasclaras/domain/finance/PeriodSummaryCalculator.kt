@@ -30,7 +30,8 @@ object PeriodSummaryCalculator {
             payments.filter { it.period == period }
         }
 
-        val expenseBalances = BalanceCalculator.calculate(filteredExpenses, memberIds, currency)
+        val participantIds = participantsForSummary(memberIds, filteredExpenses, filteredPayments)
+        val expenseBalances = BalanceCalculator.calculate(filteredExpenses, participantIds, currency)
         val outstanding = SettlementPaymentApplicator.apply(expenseBalances, filteredPayments)
 
         return PeriodSummary(
@@ -39,6 +40,29 @@ object PeriodSummaryCalculator {
             suggestedTransfers = SettlementCalculator.calculate(outstanding),
             recordedPayments = filteredPayments.sortedBy { it.createdAt },
         )
+    }
+
+    /**
+     * Active members plus anyone involved in the period's expenses/payments
+     * (e.g. former members whose historical splits must still balance).
+     */
+    fun participantsForSummary(
+        memberIds: List<UserId>,
+        expenses: List<Expense>,
+        payments: List<SettlementPayment>,
+    ): List<UserId> {
+        val ids = linkedSetOf<UserId>()
+        memberIds.forEach { ids += it }
+        expenses.forEach { expense ->
+            ids += expense.paidBy
+            expense.splits.forEach { ids += it.userId }
+        }
+        payments.forEach { payment ->
+            ids += payment.fromUserId
+            ids += payment.toUserId
+        }
+        require(ids.isNotEmpty()) { "At least one participant is required" }
+        return ids.toList()
     }
 }
 
