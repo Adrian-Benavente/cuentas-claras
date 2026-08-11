@@ -106,7 +106,13 @@ class GroupViewModel @Inject constructor(
     }
 
     fun nextPeriod() {
+        if (!PeriodGate.canGoToNextPeriod(selectedPeriod)) return
         selectedPeriod = selectedPeriod.plusMonths(1)
+        refresh(showLoading = false)
+    }
+
+    fun setPeriod(period: YearMonth) {
+        selectedPeriod = PeriodGate.coerceNotFuture(period)
         refresh(showLoading = false)
     }
 

@@ -31,11 +31,16 @@ import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.NavigateBefore
 import androidx.compose.material.icons.automirrored.filled.NavigateNext
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Assessment
+import androidx.compose.material.icons.filled.Group
+import androidx.compose.material.icons.filled.Receipt
+import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Share
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.AssistChip
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.FilterChip
 import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -63,6 +68,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
@@ -90,8 +96,22 @@ import com.cuentasclaras.domain.model.MemberBalance
 import com.cuentasclaras.domain.model.MemberRole
 import com.cuentasclaras.domain.model.SuggestedTransfer
 import kotlinx.coroutines.launch
+import java.time.Month
+import java.time.YearMonth
 import java.time.format.TextStyle
 import java.util.Locale
+
+private data class GroupTab(
+    val label: String,
+    val icon: ImageVector,
+)
+
+private val groupTabs = listOf(
+    GroupTab("Resumen", Icons.Filled.Assessment),
+    GroupTab("Gastos", Icons.Filled.Receipt),
+    GroupTab("Miembros", Icons.Filled.Group),
+    GroupTab("Configuración", Icons.Filled.Settings),
+)
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -109,7 +129,6 @@ fun GroupScreen(
     val state by viewModel.state.collectAsStateWithLifecycle()
     val isOnline by viewModel.isOnline.collectAsStateWithLifecycle()
     var tabIndex by rememberSaveable { mutableIntStateOf(if (focusInvite) 3 else 0) }
-    val tabs = listOf("Resumen", "Gastos", "Miembros", "Configuración")
     val snackbarHostState = remember { SnackbarHostState() }
     var showRotateConfirm by remember { mutableStateOf(false) }
     var showClosePeriodConfirm by remember { mutableStateOf(false) }
@@ -204,11 +223,19 @@ fun GroupScreen(
                     Column(Modifier.padding(padding).fillMaxSize()) {
                         OfflineBanner(visible = showOfflineBanner)
                         PrimaryTabRow(selectedTabIndex = tabIndex) {
-                            tabs.forEachIndexed { index, title ->
+                            groupTabs.forEachIndexed { index, tab ->
                                 Tab(
                                     selected = tabIndex == index,
                                     onClick = { tabIndex = index },
-                                    text = { Text(title) },
+                                    icon = {
+                                        Icon(
+                                            imageVector = tab.icon,
+                                            contentDescription = null,
+                                        )
+                                    },
+                                    modifier = Modifier.semantics {
+                                        contentDescription = tab.label
+                                    },
                                 )
                             }
                         }
@@ -217,6 +244,7 @@ fun GroupScreen(
                                 content = ui.data,
                                 onPrevious = viewModel::previousPeriod,
                                 onNext = viewModel::nextPeriod,
+                                onSelectPeriod = viewModel::setPeriod,
                                 onMarkSettled = viewModel::markSettled,
                                 onUndoPayment = viewModel::undoPayment,
                                 onRequestClosePeriod = { showClosePeriodConfirm = true },
@@ -336,6 +364,7 @@ private fun SummaryTab(
     content: GroupContent,
     onPrevious: () -> Unit,
     onNext: () -> Unit,
+    onSelectPeriod: (YearMonth) -> Unit,
     onMarkSettled: (SuggestedTransfer) -> Unit,
     onUndoPayment: (com.cuentasclaras.domain.model.SettlementPaymentId) -> Unit,
     onRequestClosePeriod: () -> Unit,
@@ -348,6 +377,8 @@ private fun SummaryTab(
         " ${content.period.year}"
     val needsInvite = content.members.size < 2
     val periodClosed = content.isPeriodClosed
+    var showPeriodPicker by remember { mutableStateOf(false) }
+    val canGoNext = PeriodGate.canGoToNextPeriod(content.period)
 
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
@@ -366,9 +397,16 @@ private fun SummaryTab(
                 ) {
                     Icon(Icons.AutoMirrored.Filled.NavigateBefore, contentDescription = null)
                 }
-                Text(periodLabel.uppercase(), style = MaterialTheme.typography.titleMedium)
+                Text(
+                    text = periodLabel.uppercase(),
+                    style = MaterialTheme.typography.titleMedium,
+                    modifier = Modifier
+                        .clickable { showPeriodPicker = true }
+                        .semantics { contentDescription = "Elegir período" },
+                )
                 IconButton(
                     onClick = onNext,
+                    enabled = canGoNext,
                     modifier = Modifier.semantics { contentDescription = "Mes siguiente" },
                 ) {
                     Icon(Icons.AutoMirrored.Filled.NavigateNext, contentDescription = null)
@@ -525,6 +563,100 @@ private fun SummaryTab(
             }
         }
     }
+
+    if (showPeriodPicker) {
+        PeriodMonthPickerDialog(
+            selectedPeriod = content.period,
+            onDismiss = { showPeriodPicker = false },
+            onConfirm = { period ->
+                showPeriodPicker = false
+                onSelectPeriod(period)
+            },
+        )
+    }
+}
+
+@Composable
+private fun PeriodMonthPickerDialog(
+    selectedPeriod: YearMonth,
+    onDismiss: () -> Unit,
+    onConfirm: (YearMonth) -> Unit,
+) {
+    val currentMonth = remember { YearMonth.now() }
+    var displayedYear by remember { mutableIntStateOf(selectedPeriod.year) }
+    val locale = Locale.forLanguageTag("es-AR")
+    val canGoNextYear = displayedYear < currentMonth.year
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Elegir período") },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    IconButton(
+                        onClick = { displayedYear -= 1 },
+                        modifier = Modifier.semantics { contentDescription = "Año anterior" },
+                    ) {
+                        Icon(Icons.AutoMirrored.Filled.NavigateBefore, contentDescription = null)
+                    }
+                    Text(
+                        text = displayedYear.toString(),
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.SemiBold,
+                    )
+                    IconButton(
+                        onClick = { displayedYear += 1 },
+                        enabled = canGoNextYear,
+                        modifier = Modifier.semantics { contentDescription = "Año siguiente" },
+                    ) {
+                        Icon(Icons.AutoMirrored.Filled.NavigateNext, contentDescription = null)
+                    }
+                }
+                Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                    for (row in 0 until 4) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(4.dp),
+                        ) {
+                            for (col in 1..3) {
+                                val monthNumber = row * 3 + col
+                                val period = YearMonth.of(displayedYear, monthNumber)
+                                val enabled = !period.isAfter(currentMonth)
+                                val selected = period == selectedPeriod
+                                val label = Month.of(monthNumber)
+                                    .getDisplayName(TextStyle.SHORT, locale)
+                                    .replaceFirstChar { it.titlecase(locale) }
+                                FilterChip(
+                                    selected = selected,
+                                    onClick = { onConfirm(period) },
+                                    enabled = enabled,
+                                    label = { Text(label) },
+                                    modifier = Modifier
+                                        .weight(1f)
+                                        .semantics {
+                                            contentDescription = if (selected) {
+                                                "$label $displayedYear, seleccionado"
+                                            } else {
+                                                "$label $displayedYear"
+                                            }
+                                        },
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        confirmButton = {
+            TextButton(onClick = onDismiss) {
+                Text("Cancelar")
+            }
+        },
+    )
 }
 
 @Composable
