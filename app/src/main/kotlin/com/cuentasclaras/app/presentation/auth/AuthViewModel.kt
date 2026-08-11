@@ -4,6 +4,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.cuentasclaras.app.data.auth.AuthRepository
 import com.cuentasclaras.app.data.auth.SessionState
+import com.cuentasclaras.app.util.UserFacingError
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -66,7 +67,7 @@ class AuthViewModel @Inject constructor(
             }.onFailure { error ->
                 _formState.value = _formState.value.copy(
                     isLoading = false,
-                    errorMessage = userFacingAuthError(error),
+                    errorMessage = UserFacingError.from(error, UserFacingError.Context.Auth),
                 )
             }
         }
@@ -97,7 +98,7 @@ class AuthViewModel @Inject constructor(
             }.onFailure { error ->
                 _formState.value = _formState.value.copy(
                     isLoading = false,
-                    errorMessage = userFacingAuthError(error),
+                    errorMessage = UserFacingError.from(error, UserFacingError.Context.Auth),
                 )
             }
         }
@@ -121,7 +122,7 @@ class AuthViewModel @Inject constructor(
             }.onFailure { error ->
                 _formState.value = _formState.value.copy(
                     isLoading = false,
-                    errorMessage = userFacingAuthError(error),
+                    errorMessage = UserFacingError.from(error, UserFacingError.Context.Auth),
                 )
             }
         }
@@ -137,7 +138,7 @@ class AuthViewModel @Inject constructor(
             }.onFailure { error ->
                 _formState.value = _formState.value.copy(
                     isLoading = false,
-                    errorMessage = userFacingAuthError(error),
+                    errorMessage = UserFacingError.from(error, UserFacingError.Context.Auth),
                 )
             }
         }
@@ -155,20 +156,5 @@ class AuthViewModel @Inject constructor(
 
     fun showError(message: String) {
         _formState.value = _formState.value.copy(isLoading = false, errorMessage = message)
-    }
-
-    private fun userFacingAuthError(error: Throwable): String {
-        val message = error.message.orEmpty().lowercase()
-        return when {
-            message.contains("invalid login") || message.contains("invalid_credentials") ->
-                "Email o contraseña incorrectos."
-            message.contains("user already") || message.contains("already registered") ->
-                "Ya existe una cuenta con ese email."
-            message.contains("supabase.url") || message.contains("local.properties") ->
-                "Falta configurar Supabase en local.properties."
-            message.contains("network") || message.contains("unable to resolve") ->
-                "No pudimos conectar. Revisá tu conexión a internet."
-            else -> "No se pudo completar la autenticación. Intentá de nuevo."
-        }
     }
 }

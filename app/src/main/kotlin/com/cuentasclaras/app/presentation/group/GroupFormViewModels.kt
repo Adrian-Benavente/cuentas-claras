@@ -5,6 +5,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.cuentasclaras.app.data.group.GroupRepository
 import com.cuentasclaras.app.util.InviteShare
+import com.cuentasclaras.app.util.UserFacingError
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -42,10 +43,10 @@ class CreateGroupViewModel @Inject constructor(
                 .onSuccess { group ->
                     _state.value = _state.value.copy(isLoading = false, createdGroupId = group.id.value)
                 }
-                .onFailure {
+                .onFailure { error ->
                     _state.value = _state.value.copy(
                         isLoading = false,
-                        errorMessage = "No pudimos crear el grupo. Intentá de nuevo.",
+                        errorMessage = UserFacingError.from(error, UserFacingError.Context.CreateGroup),
                     )
                 }
         }
@@ -101,25 +102,9 @@ class JoinGroupViewModel @Inject constructor(
                 .onFailure { error ->
                     _state.value = _state.value.copy(
                         isLoading = false,
-                        errorMessage = joinErrorMessage(error),
+                        errorMessage = UserFacingError.from(error, UserFacingError.Context.JoinGroup),
                     )
                 }
-        }
-    }
-
-    private fun joinErrorMessage(error: Throwable): String {
-        val message = error.message.orEmpty().lowercase()
-        return when {
-            message.contains("invalid invite code") ->
-                "No encontramos un grupo con ese código."
-            message.contains("not authenticated") ->
-                "Tu sesión expiró. Volvé a iniciar sesión."
-            message.contains("foreign key") || message.contains("profiles") ->
-                "Tu perfil no está completo. Cerrá sesión y volvé a entrar."
-            message.contains("network") || message.contains("unable to resolve") ->
-                "No pudimos conectar. Revisá tu conexión a internet."
-            else ->
-                "No pudimos unirte al grupo. Intentá de nuevo."
         }
     }
 }

@@ -7,6 +7,7 @@ import com.cuentasclaras.app.data.auth.AuthRepository
 import com.cuentasclaras.app.data.expense.ExpenseRepository
 import com.cuentasclaras.app.data.group.GroupRepository
 import com.cuentasclaras.app.util.MoneyFormatter
+import com.cuentasclaras.app.util.UserFacingError
 import com.cuentasclaras.domain.model.Currency
 import com.cuentasclaras.domain.model.Expense
 import com.cuentasclaras.domain.model.ExpenseId
@@ -67,10 +68,10 @@ class ExpenseEditorViewModel @Inject constructor(
                     isLoading = false,
                     existing = existing,
                 )
-            }.onFailure {
+            }.onFailure { error ->
                 _state.value = _state.value.copy(
                     isLoading = false,
-                    errorMessage = "No pudimos cargar el formulario.",
+                    errorMessage = UserFacingError.from(error, UserFacingError.Context.LoadGroup),
                 )
             }
         }
@@ -157,15 +158,9 @@ class ExpenseEditorViewModel @Inject constructor(
             }.onSuccess {
                 _state.value = _state.value.copy(isSaving = false, done = true)
             }.onFailure { error ->
-                val message = error.message.orEmpty().lowercase()
                 _state.value = _state.value.copy(
                     isSaving = false,
-                    errorMessage = when {
-                        message.contains("group needs at least two members") ->
-                            "Necesitás al menos otra persona en el grupo para cargar un gasto."
-                        else ->
-                            "No pudimos guardar el gasto. Intentá de nuevo."
-                    },
+                    errorMessage = UserFacingError.from(error, UserFacingError.Context.SaveExpense),
                 )
             }
         }
@@ -214,11 +209,11 @@ class ExpenseDetailViewModel @Inject constructor(
                     members = members,
                     canEdit = currentUser == expense.createdBy || isOwner,
                 )
-            }.onFailure {
+            }.onFailure { error ->
                 if (!keepContent) {
                     _state.value = ExpenseDetailUiState(
                         isLoading = false,
-                        errorMessage = "No pudimos cargar el gasto.",
+                        errorMessage = UserFacingError.from(error, UserFacingError.Context.LoadGroup),
                     )
                 }
             }
@@ -229,8 +224,10 @@ class ExpenseDetailViewModel @Inject constructor(
         viewModelScope.launch {
             runCatching { expenseRepository.deleteExpense(expenseId) }
                 .onSuccess { _state.value = _state.value.copy(deleted = true) }
-                .onFailure {
-                    _state.value = _state.value.copy(errorMessage = "No pudimos eliminar el gasto.")
+                .onFailure { error ->
+                    _state.value = _state.value.copy(
+                        errorMessage = UserFacingError.from(error, UserFacingError.Context.DeleteExpense),
+                    )
                 }
         }
     }

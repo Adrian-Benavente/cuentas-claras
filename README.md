@@ -46,8 +46,11 @@ Nunca commits `local.properties` ni la service-role key.
 
 ```bash
 ./gradlew :domain:test
+./gradlew :app:testDebugUnitTest
 ./gradlew :app:assembleDebug
 ```
+
+En GitHub Actions (`.github/workflows/ci.yml`) se corren esos mismos checks en cada push/PR a `main`.
 
 ### 4. Correr en emulador o dispositivo
 

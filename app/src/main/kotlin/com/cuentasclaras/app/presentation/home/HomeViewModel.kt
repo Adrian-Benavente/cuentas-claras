@@ -4,6 +4,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.cuentasclaras.app.data.group.GroupRepository
 import com.cuentasclaras.app.presentation.components.UiState
+import com.cuentasclaras.app.util.UserFacingError
 import com.cuentasclaras.domain.model.Group
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -29,9 +30,11 @@ class HomeViewModel @Inject constructor(
                 .onSuccess { groups ->
                     _state.value = if (groups.isEmpty()) UiState.Empty else UiState.Content(groups)
                 }
-                .onFailure {
+                .onFailure { error ->
                     if (_state.value !is UiState.Content && _state.value !is UiState.Empty) {
-                        _state.value = UiState.Error("No pudimos cargar tus grupos. Intentá de nuevo.")
+                        _state.value = UiState.Error(
+                            UserFacingError.from(error, UserFacingError.Context.LoadGroups),
+                        )
                     }
                 }
         }

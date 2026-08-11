@@ -8,6 +8,7 @@ import com.cuentasclaras.app.data.expense.ExpenseRepository
 import com.cuentasclaras.app.data.group.GroupRepository
 import com.cuentasclaras.app.data.settlement.SettlementRepository
 import com.cuentasclaras.app.presentation.components.UiState
+import com.cuentasclaras.app.util.UserFacingError
 import com.cuentasclaras.domain.finance.PeriodSummaryCalculator
 import com.cuentasclaras.domain.model.Expense
 import com.cuentasclaras.domain.model.Group
@@ -69,9 +70,11 @@ class GroupViewModel @Inject constructor(
                 .onSuccess { content ->
                     _state.value = UiState.Content(content)
                 }
-                .onFailure {
+                .onFailure { error ->
                     if (_state.value !is UiState.Content) {
-                        _state.value = UiState.Error("No pudimos cargar el grupo. Intentá de nuevo.")
+                        _state.value = UiState.Error(
+                            UserFacingError.from(error, UserFacingError.Context.LoadGroup),
+                        )
                     }
                 }
         }
@@ -94,8 +97,8 @@ class GroupViewModel @Inject constructor(
                     _messages.tryEmit("Código actualizado")
                     refresh(showLoading = false)
                 }
-                .onFailure {
-                    _messages.tryEmit("No pudimos generar un nuevo código. Intentá de nuevo.")
+                .onFailure { error ->
+                    _messages.tryEmit(UserFacingError.from(error, UserFacingError.Context.RotateInvite))
                 }
         }
     }
@@ -116,8 +119,8 @@ class GroupViewModel @Inject constructor(
             }.onSuccess {
                 _messages.tryEmit("Marcado como saldado")
                 refresh(showLoading = false)
-            }.onFailure {
-                _messages.tryEmit("No pudimos registrar el pago. Intentá de nuevo.")
+            }.onFailure { error ->
+                _messages.tryEmit(UserFacingError.from(error, UserFacingError.Context.Settlement))
             }
         }
     }
@@ -129,8 +132,8 @@ class GroupViewModel @Inject constructor(
                     _messages.tryEmit("Pago deshecho")
                     refresh(showLoading = false)
                 }
-                .onFailure {
-                    _messages.tryEmit("No pudimos deshacer el pago. Intentá de nuevo.")
+                .onFailure { error ->
+                    _messages.tryEmit(UserFacingError.from(error, UserFacingError.Context.Settlement))
                 }
         }
     }
@@ -143,21 +146,7 @@ class GroupViewModel @Inject constructor(
                     refresh(showLoading = false)
                 }
                 .onFailure { error ->
-                    val message = error.message.orEmpty().lowercase()
-                    _messages.tryEmit(
-                        when {
-                            message.contains("only owner") ->
-                                "Solo el administrador puede eliminar miembros."
-                            message.contains("cannot remove owner") ->
-                                "No se puede eliminar al administrador."
-                            message.contains("cannot remove yourself") ->
-                                "No podés eliminarte a vos mismo."
-                            message.contains("member not found") ->
-                                "Ese miembro ya no está en el grupo."
-                            else ->
-                                "No pudimos eliminar al miembro. Intentá de nuevo."
-                        },
-                    )
+                    _messages.tryEmit(UserFacingError.from(error, UserFacingError.Context.RemoveMember))
                 }
         }
     }
