@@ -120,6 +120,13 @@ class ExpenseEditorViewModel @Inject constructor(
                 _state.value = current.copy(errorMessage = "El grupo no tiene miembros.")
                 return
             }
+            expenseId == null && current.members.size < 2 -> {
+                _state.value = current.copy(
+                    errorMessage = "Necesitás al menos otra persona en el grupo para cargar un gasto. " +
+                        "Invitala con el código desde Configuración.",
+                )
+                return
+            }
         }
 
         viewModelScope.launch {
@@ -149,10 +156,16 @@ class ExpenseEditorViewModel @Inject constructor(
                 }
             }.onSuccess {
                 _state.value = _state.value.copy(isSaving = false, done = true)
-            }.onFailure {
+            }.onFailure { error ->
+                val message = error.message.orEmpty().lowercase()
                 _state.value = _state.value.copy(
                     isSaving = false,
-                    errorMessage = "No pudimos guardar el gasto. Intentá de nuevo.",
+                    errorMessage = when {
+                        message.contains("group needs at least two members") ->
+                            "Necesitás al menos otra persona en el grupo para cargar un gasto."
+                        else ->
+                            "No pudimos guardar el gasto. Intentá de nuevo."
+                    },
                 )
             }
         }

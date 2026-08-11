@@ -13,6 +13,7 @@ Usá dos cuentas (email o Google) en emulador/dispositivo.
 ## Grupos e invitaciones
 
 - [ ] Usuario A crea un grupo
+- [ ] Con un solo miembro: no aparece FAB de gastos; Resumen/Gastos orientan a invitar
 - [ ] En Configuración ve el código de invitación
 - [ ] Compartir código (share sheet)
 - [ ] Usuario B se une con el código
@@ -20,6 +21,7 @@ Usá dos cuentas (email o Google) en emulador/dispositivo.
 
 ## Gastos
 
+- [ ] Flujo feliz: crear grupo → invitar → unirse → primer gasto
 - [ ] Agregar gasto (concepto, monto, quién pagó, fecha con date picker)
 - [ ] Al guardar aparece snackbar "Gasto guardado"
 - [ ] El gasto figura en Gastos del mes actual
@@ -27,6 +29,7 @@ Usá dos cuentas (email o Google) en emulador/dispositivo.
 - [ ] Abrir detalle, editar, ver snackbar "Gasto actualizado"
 - [ ] Eliminar gasto (confirmación) y ver snackbar "Gasto eliminado"
 - [ ] Saldos recalculados tras editar/eliminar
+- [ ] (Legacy) Si hay un gasto creado solo, el aviso de reparto incompleto y re-guardar lo redistribuye
 
 ## Período
 

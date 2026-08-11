@@ -79,7 +79,8 @@ export PATH="$ANDROID_HOME/platform-tools:$PATH"
 
 ## Reglas de negocio (MVP)
 
-- Split EQUAL entre todos los miembros del grupo.
+- Crear un gasto requiere al menos **2 miembros** en el grupo (invitar antes de cargar).
+- Split EQUAL entre todos los miembros del grupo al momento de guardar.
 - Redondeo: resto a los primeros `amount % n` miembros ordenados por `userId`.
 - `balance = amountPaid - amountOwed` (positivo = debe recibir).
 - Settlements sugeridos = greedy deudor→acreedor (no son pagos registrados).

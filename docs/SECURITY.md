@@ -19,7 +19,7 @@ Helper: `is_group_member(group_id)`, `is_group_owner(group_id)`.
 | Create group | Authenticated | RPC `create_group` → OWNER membership + invite code |
 | Join group | Authenticated | RPC `join_group_by_code(p_invite_code)` |
 | Rotate invite code | OWNER | RPC `rotate_invite_code` |
-| Create expense | Member | RPC `create_expense` (payer must be member; splits must sum) |
+| Create expense | Member | RPC `create_expense` (≥2 members; payer must be member; splits must sum) |
 | Update expense | Creator or OWNER | RPC `update_expense` |
 | Delete expense | Creator or OWNER | RLS `expenses_delete` |
 | Read settlement payments | Member | RLS `settlement_payments_select` |

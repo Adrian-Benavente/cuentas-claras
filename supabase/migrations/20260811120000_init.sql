@@ -229,6 +229,11 @@ begin
   if not public.is_group_member(p_group_id) then
     raise exception 'not a group member';
   end if;
+  if (
+    select count(*)::int from public.group_members where group_id = p_group_id
+  ) < 2 then
+    raise exception 'group needs at least two members';
+  end if;
   if p_amount_minor is null or p_amount_minor <= 0 then
     raise exception 'amount must be > 0';
   end if;

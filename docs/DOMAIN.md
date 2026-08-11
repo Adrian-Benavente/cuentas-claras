@@ -54,7 +54,9 @@ Settlement payments store `period_year` / `period_month` explicitly.
 ## Expenses
 
 - Amount must be `> 0`.
+- **Creating** a new expense requires the group to have **at least 2 members** (UI + `create_expense` RPC).
 - MVP: equal split among **members present when the expense is saved**.
 - Splits are persisted on `expense_splits` and are **not** auto-updated when someone joins later.
-  If a gasto was created while alone in the group, it stays 100% on that member until edited and saved again (which re-splits among current members).
+  Legacy expenses created while alone stay 100% on that member until edited and saved again
+  (`update_expense` still allows re-splitting among current members).
 - Edit/delete recalculates balances from source expenses (no cached authoritative balances).

@@ -120,7 +120,9 @@ fun GroupScreen(
         },
         snackbarHost = { SnackbarHost(snackbarHostState) },
         floatingActionButton = {
-            if (tabIndex == 1) {
+            val content = (state as? UiState.Content)?.data
+            val canAddExpenses = content != null && content.members.size >= 2
+            if (tabIndex == 1 && canAddExpenses) {
                 FloatingActionButton(
                     onClick = onAddExpense,
                     modifier = Modifier.semantics { contentDescription = "Agregar gasto" },
@@ -163,11 +165,13 @@ fun GroupScreen(
                             onNext = viewModel::nextPeriod,
                             onMarkSettled = viewModel::markSettled,
                             onUndoPayment = viewModel::undoPayment,
+                            onGoToInvite = { tabIndex = 3 },
                         )
                         1 -> ExpensesTab(
                             content = ui.data,
                             onOpenExpense = onOpenExpense,
                             onAddExpense = onAddExpense,
+                            onGoToInvite = { tabIndex = 3 },
                         )
                         2 -> MembersTab(members = ui.data.members)
                         3 -> SettingsTab(
@@ -189,11 +193,13 @@ private fun SummaryTab(
     onNext: () -> Unit,
     onMarkSettled: (SuggestedTransfer) -> Unit,
     onUndoPayment: (com.cuentasclaras.domain.model.SettlementPaymentId) -> Unit,
+    onGoToInvite: () -> Unit,
 ) {
     val periodLabel = content.period.month
         .getDisplayName(TextStyle.FULL, Locale.forLanguageTag("es-AR"))
         .replaceFirstChar { it.titlecase(Locale.forLanguageTag("es-AR")) } +
         " ${content.period.year}"
+    val needsInvite = content.members.size < 2
 
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
@@ -218,6 +224,24 @@ private fun SummaryTab(
                     modifier = Modifier.semantics { contentDescription = "Mes siguiente" },
                 ) {
                     Icon(Icons.AutoMirrored.Filled.NavigateNext, contentDescription = null)
+                }
+            }
+        }
+        if (needsInvite) {
+            item {
+                Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                    Text(
+                        "Para cargar gastos necesitás al menos otra persona en el grupo.",
+                        style = MaterialTheme.typography.bodyMedium,
+                    )
+                    TextButton(
+                        onClick = onGoToInvite,
+                        modifier = Modifier.semantics {
+                            contentDescription = "Ir a invitar miembro"
+                        },
+                    ) {
+                        Text("Invitar desde Configuración")
+                    }
                 }
             }
         }
@@ -398,19 +422,45 @@ private fun ExpensesTab(
     content: GroupContent,
     onOpenExpense: (String) -> Unit,
     onAddExpense: () -> Unit,
+    onGoToInvite: () -> Unit,
 ) {
     val periodExpenses = content.expenses.filter { it.period == content.period }
+    val canAddExpenses = content.members.size >= 2
     if (periodExpenses.isEmpty()) {
-        FullScreenMessage(
-            title = "No hay gastos en este período",
-            body = "Tocá + para registrar el primero. El resumen se actualiza al guardar.",
-            actionLabel = "Agregar gasto",
-            onAction = onAddExpense,
-        )
+        if (canAddExpenses) {
+            FullScreenMessage(
+                title = "No hay gastos en este período",
+                body = "Tocá + para registrar el primero. El resumen se actualiza al guardar.",
+                actionLabel = "Agregar gasto",
+                onAction = onAddExpense,
+            )
+        } else {
+            FullScreenMessage(
+                title = "Invitá a alguien para empezar",
+                body = "Los gastos se reparten entre los miembros del grupo. " +
+                    "Compartí el código de invitación desde Configuración y, cuando se una " +
+                    "al menos una persona más, vas a poder cargar gastos.",
+                actionLabel = "Ver código de invitación",
+                onAction = onGoToInvite,
+            )
+        }
         return
     }
 
     LazyColumn(contentPadding = PaddingValues(16.dp)) {
+        if (!canAddExpenses) {
+            item {
+                Text(
+                    "Para agregar nuevos gastos necesitás al menos otra persona en el grupo. " +
+                        "Podés seguir editando gastos existentes.",
+                    style = MaterialTheme.typography.bodyMedium,
+                    modifier = Modifier.padding(bottom = 8.dp),
+                )
+                TextButton(onClick = onGoToInvite) {
+                    Text("Ver código de invitación")
+                }
+            }
+        }
         items(periodExpenses, key = { it.id.value }) { expense ->
             ExpenseRow(expense, content.members, onOpenExpense)
         }

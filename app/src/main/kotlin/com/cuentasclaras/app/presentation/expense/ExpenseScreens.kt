@@ -155,9 +155,12 @@ fun ExpenseEditorScreen(
 
             Text(
                 text = when {
+                    expenseId == null && state.members.size < 2 ->
+                        "Necesitás al menos otra persona en el grupo para cargar un gasto. " +
+                            "Invitala con el código desde Configuración."
                     state.members.size <= 1 ->
-                        "Solo hay un miembro en el grupo: el gasto queda a cargo completo. " +
-                            "Cuando se una alguien, editá y guardá de nuevo para repartirlo."
+                        "Solo hay un miembro en el grupo. Podés editar este gasto, " +
+                            "pero para crear uno nuevo necesitás invitar a alguien."
                     else ->
                         "Se divide en partes iguales entre ${state.members.size} miembros: " +
                             state.members.joinToString { it.displayName }
@@ -174,8 +177,10 @@ fun ExpenseEditorScreen(
             if (state.isSaving) {
                 CircularProgressIndicator()
             } else {
+                val canCreate = expenseId != null || state.members.size >= 2
                 Button(
                     onClick = viewModel::save,
+                    enabled = canCreate,
                     modifier = Modifier
                         .fillMaxWidth()
                         .semantics { contentDescription = "Guardar gasto" },
