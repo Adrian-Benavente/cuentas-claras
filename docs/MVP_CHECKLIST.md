@@ -33,6 +33,14 @@ Usá dos cuentas (email o Google) en emulador/dispositivo.
 - [ ] Navegar mes anterior / siguiente en Resumen
 - [ ] Un gasto con fecha de otro mes aparece solo en ese período
 
+## Deudas saldadas
+
+- [ ] En Resumen, una sugerencia muestra **Marcar saldado**
+- [ ] Al marcar, desaparece de “Para saldar” y aparece en **Saldados**
+- [ ] Los saldos Pagó / Le corresponde / Saldo (por gastos) no cambian al marcar
+- [ ] **Deshacer** vuelve a mostrar la sugerencia
+- [ ] Un pago de otro mes no afecta el período actual
+
 ## Cierre
 
 - [ ] Cerrar sesión desde Home o Configuración del grupo

@@ -99,6 +99,12 @@ fun GroupScreen(
         onFlashConsumed()
     }
 
+    LaunchedEffect(viewModel) {
+        viewModel.messages.collect { message ->
+            snackbarHostState.showSnackbar(message)
+        }
+    }
+
     Scaffold(
         topBar = {
             TopAppBar(
@@ -155,6 +161,8 @@ fun GroupScreen(
                             content = ui.data,
                             onPrevious = viewModel::previousPeriod,
                             onNext = viewModel::nextPeriod,
+                            onMarkSettled = viewModel::markSettled,
+                            onUndoPayment = viewModel::undoPayment,
                         )
                         1 -> ExpensesTab(
                             content = ui.data,
@@ -179,6 +187,8 @@ private fun SummaryTab(
     content: GroupContent,
     onPrevious: () -> Unit,
     onNext: () -> Unit,
+    onMarkSettled: (SuggestedTransfer) -> Unit,
+    onUndoPayment: (com.cuentasclaras.domain.model.SettlementPaymentId) -> Unit,
 ) {
     val periodLabel = content.period.month
         .getDisplayName(TextStyle.FULL, Locale.forLanguageTag("es-AR"))
@@ -230,18 +240,43 @@ private fun SummaryTab(
             item {
                 Text("Para saldar", style = MaterialTheme.typography.titleMedium)
             }
-            items(content.summary.suggestedTransfers) { transfer ->
-                TransferRow(transfer, content.members)
+            items(
+                content.summary.suggestedTransfers,
+                key = { "${it.fromUserId.value}-${it.toUserId.value}-${it.amount.amountMinor}" },
+            ) { transfer ->
+                TransferRow(
+                    transfer = transfer,
+                    members = content.members,
+                    onMarkSettled = { onMarkSettled(transfer) },
+                )
             }
         } else {
             item {
                 Text(
-                    if (content.summary.totalSpent.isZero()) {
-                        "No hay gastos en este período."
-                    } else {
-                        "Las cuentas están saldadas."
+                    when {
+                        content.summary.totalSpent.isZero() &&
+                            content.summary.recordedPayments.isEmpty() ->
+                            "No hay gastos en este período."
+                        content.summary.recordedPayments.isNotEmpty() ->
+                            "No queda nada pendiente por saldar."
+                        else -> "Las cuentas están saldadas."
                     },
                     style = MaterialTheme.typography.bodyMedium,
+                )
+            }
+        }
+        if (content.summary.recordedPayments.isNotEmpty()) {
+            item {
+                Text("Saldados", style = MaterialTheme.typography.titleMedium)
+            }
+            items(
+                content.summary.recordedPayments,
+                key = { it.id.value },
+            ) { payment ->
+                SettledPaymentRow(
+                    payment = payment,
+                    members = content.members,
+                    onUndo = { onUndoPayment(payment.id) },
                 )
             }
         }
@@ -282,15 +317,63 @@ private fun MemberBalanceCard(balance: MemberBalance, displayName: String) {
 }
 
 @Composable
-private fun TransferRow(transfer: SuggestedTransfer, members: List<GroupMember>) {
+private fun TransferRow(
+    transfer: SuggestedTransfer,
+    members: List<GroupMember>,
+    onMarkSettled: () -> Unit,
+) {
     val from = members.find { it.userId == transfer.fromUserId }?.displayName ?: transfer.fromUserId.value
     val to = members.find { it.userId == transfer.toUserId }?.displayName ?: transfer.toUserId.value
-    Text(
-        "$from debe ${MoneyFormatter.format(transfer.amount)} a $to",
-        modifier = Modifier.semantics {
-            contentDescription = "$from debe ${MoneyFormatter.format(transfer.amount)} a $to"
-        },
-    )
+    val label = "$from debe ${MoneyFormatter.format(transfer.amount)} a $to"
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Text(
+            label,
+            modifier = Modifier
+                .weight(1f)
+                .semantics { contentDescription = label },
+        )
+        TextButton(
+            onClick = onMarkSettled,
+            modifier = Modifier.semantics {
+                contentDescription = "Marcar saldado: $label"
+            },
+        ) {
+            Text("Marcar saldado")
+        }
+    }
+}
+
+@Composable
+private fun SettledPaymentRow(
+    payment: com.cuentasclaras.domain.model.SettlementPayment,
+    members: List<GroupMember>,
+    onUndo: () -> Unit,
+) {
+    val from = members.find { it.userId == payment.fromUserId }?.displayName ?: payment.fromUserId.value
+    val to = members.find { it.userId == payment.toUserId }?.displayName ?: payment.toUserId.value
+    val label = "✓ $from pagó ${MoneyFormatter.format(payment.amount)} a $to"
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Text(
+            label,
+            modifier = Modifier
+                .weight(1f)
+                .semantics { contentDescription = label },
+        )
+        TextButton(
+            onClick = onUndo,
+            modifier = Modifier.semantics { contentDescription = "Deshacer: $label" },
+        ) {
+            Text("Deshacer")
+        }
+    }
 }
 
 @Composable

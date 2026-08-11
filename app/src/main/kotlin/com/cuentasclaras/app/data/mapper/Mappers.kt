@@ -5,6 +5,7 @@ import com.cuentasclaras.app.data.remote.ExpenseSplitDto
 import com.cuentasclaras.app.data.remote.GroupDto
 import com.cuentasclaras.app.data.remote.GroupMemberDto
 import com.cuentasclaras.app.data.remote.ProfileDto
+import com.cuentasclaras.app.data.remote.SettlementPaymentDto
 import com.cuentasclaras.domain.model.Currency
 import com.cuentasclaras.domain.model.Expense
 import com.cuentasclaras.domain.model.ExpenseId
@@ -14,11 +15,14 @@ import com.cuentasclaras.domain.model.GroupId
 import com.cuentasclaras.domain.model.GroupMember
 import com.cuentasclaras.domain.model.MemberRole
 import com.cuentasclaras.domain.model.Money
+import com.cuentasclaras.domain.model.SettlementPayment
+import com.cuentasclaras.domain.model.SettlementPaymentId
 import com.cuentasclaras.domain.model.SplitType
 import com.cuentasclaras.domain.model.User
 import com.cuentasclaras.domain.model.UserId
 import java.time.Instant
 import java.time.LocalDate
+import java.time.YearMonth
 
 fun ProfileDto.toDomain(): User = User(
     id = UserId(id),
@@ -75,3 +79,14 @@ fun ExpenseDto.toDomain(): Expense {
         splits = splits.map { it.toDomain(currency) },
     )
 }
+
+fun SettlementPaymentDto.toDomain(): SettlementPayment = SettlementPayment(
+    id = SettlementPaymentId(id),
+    groupId = GroupId(groupId),
+    fromUserId = UserId(fromUserId),
+    toUserId = UserId(toUserId),
+    amount = Money(amountMinor, Currency(currency)),
+    period = YearMonth.of(periodYear, periodMonth),
+    createdBy = UserId(createdBy),
+    createdAt = Instant.parse(createdAt),
+)

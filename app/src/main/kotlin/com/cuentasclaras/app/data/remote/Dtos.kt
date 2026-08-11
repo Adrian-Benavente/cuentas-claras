@@ -65,10 +65,36 @@ data class CreateGroupRequest(
 
 @Serializable
 data class JoinGroupRequest(
-    @SerialName("invite_code") val inviteCode: String,
+    @SerialName("p_invite_code") val inviteCode: String,
 )
 
 @Serializable
 data class JoinGroupResponse(
     @SerialName("group_id") val groupId: String,
+)
+
+@Serializable
+data class SettlementPaymentDto(
+    val id: String,
+    @SerialName("group_id") val groupId: String,
+    @SerialName("from_user_id") val fromUserId: String,
+    @SerialName("to_user_id") val toUserId: String,
+    @SerialName("amount_minor") val amountMinor: Long,
+    val currency: String,
+    @SerialName("period_year") val periodYear: Int,
+    @SerialName("period_month") val periodMonth: Int,
+    @SerialName("created_by") val createdBy: String,
+    @SerialName("created_at") val createdAt: String,
+)
+
+@Serializable
+data class SettlementPaymentInsertDto(
+    @SerialName("group_id") val groupId: String,
+    @SerialName("from_user_id") val fromUserId: String,
+    @SerialName("to_user_id") val toUserId: String,
+    @SerialName("amount_minor") val amountMinor: Long,
+    val currency: String,
+    @SerialName("period_year") val periodYear: Int,
+    @SerialName("period_month") val periodMonth: Int,
+    @SerialName("created_by") val createdBy: String,
 )

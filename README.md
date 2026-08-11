@@ -99,6 +99,7 @@ Ver también [`docs/MVP_CHECKLIST.md`](docs/MVP_CHECKLIST.md) para la verificaci
 - [x] Crear / editar / eliminar gastos
 - [x] Historial por mes
 - [x] Resumen: total, pagó, le corresponde, saldo, quién debe a quién
+- [x] Marcar / deshacer deudas saldadas (pagos de settlement por período)
 - [x] Tests de dominio financiero
 
 ## Seguridad

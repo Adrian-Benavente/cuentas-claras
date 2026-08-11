@@ -143,7 +143,7 @@ begin
 end;
 $$;
 
-create or replace function public.join_group_by_code(invite_code text)
+create or replace function public.join_group_by_code(p_invite_code text)
 returns jsonb
 language plpgsql
 security definer
@@ -156,11 +156,15 @@ begin
     raise exception 'not authenticated';
   end if;
 
+  if p_invite_code is null or length(trim(p_invite_code)) = 0 then
+    raise exception 'invalid invite code';
+  end if;
+
   select * into v_group
   from public.groups g
-  where g.invite_code = upper(trim(invite_code));
+  where g.invite_code = upper(trim(p_invite_code));
 
-  if v_group.id is null then
+  if not found then
     raise exception 'invalid invite code';
   end if;
 

@@ -32,6 +32,10 @@ data class SuggestedTransfer(
 
 data class PeriodSummary(
     val totalSpent: Money,
+    /** Expense-derived balances (ignores recorded settlement payments). */
     val memberBalances: List<MemberBalance>,
+    /** Pending transfers after applying recorded payments for the period. */
     val suggestedTransfers: List<SuggestedTransfer>,
+    /** Settlement payments recorded for this period. */
+    val recordedPayments: List<SettlementPayment> = emptyList(),
 )

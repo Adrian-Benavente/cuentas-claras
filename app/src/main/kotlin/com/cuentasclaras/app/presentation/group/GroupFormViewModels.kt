@@ -80,12 +80,28 @@ class JoinGroupViewModel @Inject constructor(
                 .onSuccess { groupId ->
                     _state.value = _state.value.copy(isLoading = false, joinedGroupId = groupId.value)
                 }
-                .onFailure {
+                .onFailure { error ->
                     _state.value = _state.value.copy(
                         isLoading = false,
-                        errorMessage = "No encontramos un grupo con ese código.",
+                        errorMessage = joinErrorMessage(error),
                     )
                 }
+        }
+    }
+
+    private fun joinErrorMessage(error: Throwable): String {
+        val message = error.message.orEmpty().lowercase()
+        return when {
+            message.contains("invalid invite code") ->
+                "No encontramos un grupo con ese código."
+            message.contains("not authenticated") ->
+                "Tu sesión expiró. Volvé a iniciar sesión."
+            message.contains("foreign key") || message.contains("profiles") ->
+                "Tu perfil no está completo. Cerrá sesión y volvé a entrar."
+            message.contains("network") || message.contains("unable to resolve") ->
+                "No pudimos conectar. Revisá tu conexión a internet."
+            else ->
+                "No pudimos unirte al grupo. Intentá de nuevo."
         }
     }
 }

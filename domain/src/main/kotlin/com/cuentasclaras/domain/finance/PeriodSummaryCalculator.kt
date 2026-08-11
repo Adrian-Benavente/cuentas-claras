@@ -4,8 +4,8 @@ import com.cuentasclaras.domain.model.Currency
 import com.cuentasclaras.domain.model.Expense
 import com.cuentasclaras.domain.model.ExpenseDraft
 import com.cuentasclaras.domain.model.ExpenseId
-import com.cuentasclaras.domain.model.Money
 import com.cuentasclaras.domain.model.PeriodSummary
+import com.cuentasclaras.domain.model.SettlementPayment
 import com.cuentasclaras.domain.model.UserId
 import java.time.Instant
 import java.time.YearMonth
@@ -17,17 +17,27 @@ object PeriodSummaryCalculator {
         memberIds: List<UserId>,
         currency: Currency,
         period: YearMonth? = null,
+        payments: List<SettlementPayment> = emptyList(),
     ): PeriodSummary {
-        val filtered = if (period == null) {
+        val filteredExpenses = if (period == null) {
             expenses
         } else {
             expenses.filter { it.period == period }
         }
-        val balances = BalanceCalculator.calculate(filtered, memberIds, currency)
+        val filteredPayments = if (period == null) {
+            payments
+        } else {
+            payments.filter { it.period == period }
+        }
+
+        val expenseBalances = BalanceCalculator.calculate(filteredExpenses, memberIds, currency)
+        val outstanding = SettlementPaymentApplicator.apply(expenseBalances, filteredPayments)
+
         return PeriodSummary(
-            totalSpent = BalanceCalculator.totalSpent(filtered, currency),
-            memberBalances = balances,
-            suggestedTransfers = SettlementCalculator.calculate(balances),
+            totalSpent = BalanceCalculator.totalSpent(filteredExpenses, currency),
+            memberBalances = expenseBalances,
+            suggestedTransfers = SettlementCalculator.calculate(outstanding),
+            recordedPayments = filteredPayments.sortedBy { it.createdAt },
         )
     }
 }

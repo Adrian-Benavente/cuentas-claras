@@ -386,12 +386,157 @@ class FinancialDomainTest {
             .isEqualTo(4_000L)
     }
 
-    @Test
+@Test
     fun money_rejectsCurrencyMismatch() {
         assertThrows(IllegalArgumentException::class.java) {
             money(100) + Money(50, Currency.USD)
         }
     }
+
+    // --- Settlement payments ---
+
+    @Test
+    fun settlementPayment_exactMatch_clearsSuggestedTransfer() {
+        val members = listOf(adrian, pareja)
+        val expenses = listOf(expense("e1", 8_000_000L, adrian, members))
+        val payment = settlementPayment(
+            id = "p1",
+            from = pareja,
+            to = adrian,
+            amountMinor = 4_000_000L,
+            period = java.time.YearMonth.of(2026, 8),
+        )
+        val summary = PeriodSummaryCalculator.summarize(
+            expenses = expenses,
+            memberIds = members,
+            currency = ars,
+            period = java.time.YearMonth.of(2026, 8),
+            payments = listOf(payment),
+        )
+        assertThat(summary.memberBalances.first { it.userId == pareja }.balance.amountMinor)
+            .isEqualTo(-4_000_000L)
+        assertThat(summary.suggestedTransfers).isEmpty()
+        assertThat(summary.recordedPayments).hasSize(1)
+    }
+
+    @Test
+    fun settlementPayment_doesNotChangeExpenseDerivedMemberRows() {
+        val members = listOf(adrian, pareja)
+        val expenses = listOf(expense("e1", 8_000L, adrian, members))
+        val payment = settlementPayment(
+            id = "p1",
+            from = pareja,
+            to = adrian,
+            amountMinor = 4_000L,
+            period = java.time.YearMonth.of(2026, 8),
+        )
+        val summary = PeriodSummaryCalculator.summarize(
+            expenses,
+            members,
+            ars,
+            java.time.YearMonth.of(2026, 8),
+            listOf(payment),
+        )
+        assertThat(summary.memberBalances.first { it.userId == adrian }.amountPaid.amountMinor)
+            .isEqualTo(8_000L)
+        assertThat(summary.memberBalances.first { it.userId == pareja }.amountPaid.amountMinor)
+            .isEqualTo(0L)
+    }
+
+    @Test
+    fun settlementPayment_otherPeriod_doesNotAffectSuggestions() {
+        val members = listOf(adrian, pareja)
+        val expenses = listOf(
+            expense("e1", 8_000L, adrian, members, date = LocalDate.of(2026, 8, 5)),
+        )
+        val julyPayment = settlementPayment(
+            id = "p1",
+            from = pareja,
+            to = adrian,
+            amountMinor = 4_000L,
+            period = java.time.YearMonth.of(2026, 7),
+        )
+        val august = PeriodSummaryCalculator.summarize(
+            expenses,
+            members,
+            ars,
+            java.time.YearMonth.of(2026, 8),
+            listOf(julyPayment),
+        )
+        assertThat(august.suggestedTransfers).hasSize(1)
+        assertThat(august.recordedPayments).isEmpty()
+    }
+
+    @Test
+    fun settlementPaymentApplicator_preservesZeroSum() {
+        val a = UserId("A")
+        val b = UserId("B")
+        val c = UserId("C")
+        val balances = listOf(
+            memberBalance(a, paid = 200, owed = 100),
+            memberBalance(b, paid = 100, owed = 100),
+            memberBalance(c, paid = 0, owed = 100),
+        )
+        val payments = listOf(
+            settlementPayment("p1", c, a, 50L, java.time.YearMonth.of(2026, 8)),
+        )
+        val outstanding = SettlementPaymentApplicator.apply(balances, payments)
+        assertThat(outstanding.sumOf { it.balance.amountMinor }).isEqualTo(0L)
+        val transfers = SettlementCalculator.calculate(outstanding)
+        val after = applyTransfers(
+            outstanding.associate { it.userId to it.balance.amountMinor }.toMutableMap(),
+            transfers,
+        )
+        assertThat(after.values.all { it == 0L }).isTrue()
+    }
+
+    @Test
+    fun settlementPayment_multiplePayments_clearAllSuggestions() {
+        val a = UserId("A")
+        val b = UserId("B")
+        val c = UserId("C")
+        val d = UserId("D")
+        val balances = listOf(
+            memberBalance(a, paid = 100, owed = 0),
+            memberBalance(b, paid = 50, owed = 0),
+            memberBalance(c, paid = 0, owed = 80),
+            memberBalance(d, paid = 0, owed = 70),
+        )
+        val period = java.time.YearMonth.of(2026, 8)
+        val outstandingBefore = SettlementPaymentApplicator.apply(balances, emptyList())
+        val suggestions = SettlementCalculator.calculate(outstandingBefore)
+        assertThat(suggestions).isNotEmpty()
+
+        val payments = suggestions.mapIndexed { index, transfer ->
+            settlementPayment(
+                id = "p$index",
+                from = transfer.fromUserId,
+                to = transfer.toUserId,
+                amountMinor = transfer.amount.amountMinor,
+                period = period,
+            )
+        }
+        val outstandingAfter = SettlementPaymentApplicator.apply(balances, payments)
+        assertThat(SettlementCalculator.calculate(outstandingAfter)).isEmpty()
+        assertThat(outstandingAfter.all { it.balance.isZero() }).isTrue()
+    }
+
+    private fun settlementPayment(
+        id: String,
+        from: UserId,
+        to: UserId,
+        amountMinor: Long,
+        period: java.time.YearMonth,
+    ) = com.cuentasclaras.domain.model.SettlementPayment(
+        id = com.cuentasclaras.domain.model.SettlementPaymentId(id),
+        groupId = groupId,
+        fromUserId = from,
+        toUserId = to,
+        amount = money(amountMinor),
+        period = period,
+        createdBy = from,
+        createdAt = now,
+    )
 
     private fun applyTransfers(
         balances: MutableMap<UserId, Long>,

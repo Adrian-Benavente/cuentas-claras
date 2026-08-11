@@ -17,11 +17,14 @@ Helper: `is_group_member(group_id)`, `is_group_owner(group_id)`.
 | Read members | Member | RLS `members_select` |
 | Read expenses / splits | Member | RLS on `expenses` / `expense_splits` |
 | Create group | Authenticated | RPC `create_group` → OWNER membership + invite code |
-| Join group | Authenticated | RPC `join_group_by_code` |
+| Join group | Authenticated | RPC `join_group_by_code(p_invite_code)` |
 | Rotate invite code | OWNER | RPC `rotate_invite_code` |
 | Create expense | Member | RPC `create_expense` (payer must be member; splits must sum) |
 | Update expense | Creator or OWNER | RPC `update_expense` |
 | Delete expense | Creator or OWNER | RLS `expenses_delete` |
+| Read settlement payments | Member | RLS `settlement_payments_select` |
+| Record settlement payment | Member (`created_by = auth.uid()`) | RLS `settlement_payments_insert` |
+| Delete settlement payment | Member | RLS `settlement_payments_delete` |
 | Read/update own profile | Self | RLS on `profiles` |
 | Read other profiles | Shared group membership | RLS `profiles_select` |
 

@@ -36,9 +36,20 @@ Greedy matching of debtors to creditors. Suggested only — not recorded payment
 
 Applying all suggested transfers must bring balances to zero.
 
+## Settlement payments (recorded)
+
+Recorded transfers (`SettlementPayment`) are separate from expense-derived balances.
+
+- Member rows in the period summary (`Pagó` / `Le corresponde` / `Saldo`) ignore payments.
+- Suggested “Para saldar” uses balances after applying payments of that `YearMonth`:
+  - payment `from → to` of `X`: `balance(from) += X`, `balance(to) -= X`.
+- Marking a suggestion as settled inserts a payment for the full suggested amount in the viewed period.
+- Undoing deletes that payment row.
+
 ## Periods
 
 Derived from `expense.date` as `YearMonth`. Not stored on the expense.
+Settlement payments store `period_year` / `period_month` explicitly.
 
 ## Expenses
 
