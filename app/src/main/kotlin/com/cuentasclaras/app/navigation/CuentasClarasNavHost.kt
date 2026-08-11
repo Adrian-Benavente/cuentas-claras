@@ -5,6 +5,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -24,6 +25,7 @@ import com.cuentasclaras.app.presentation.group.GroupScreen
 import com.cuentasclaras.app.presentation.group.JoinGroupScreen
 import com.cuentasclaras.app.presentation.home.HomeScreen
 import com.cuentasclaras.app.presentation.splash.SplashScreen
+import kotlinx.coroutines.launch
 
 object Routes {
     const val Splash = "splash"
@@ -61,6 +63,16 @@ fun CuentasClarasNavHost(
     val authViewModel: AuthViewModel = hiltViewModel()
     val session by authViewModel.sessionState.collectAsStateWithLifecycle()
     var queuedJoinCode by remember { mutableStateOf(pendingJoinCode) }
+    val scope = rememberCoroutineScope()
+
+    fun navigateToLoginAfterLogout() {
+        scope.launch {
+            authViewModel.logoutAndAwait()
+            navController.navigate(Routes.Login) {
+                popUpTo(0) { inclusive = true }
+            }
+        }
+    }
 
     LaunchedEffect(pendingJoinCode) {
         if (!pendingJoinCode.isNullOrBlank()) {
@@ -153,12 +165,7 @@ fun CuentasClarasNavHost(
                 onOpenGroup = { groupId -> navController.navigate(Routes.group(groupId)) },
                 onCreateGroup = { navController.navigate(Routes.CreateGroup) },
                 onJoinGroup = { navController.navigate(Routes.joinGroup()) },
-                onLogout = {
-                    authViewModel.logout()
-                    navController.navigate(Routes.Login) {
-                        popUpTo(Routes.Home) { inclusive = true }
-                    }
-                },
+                onLogout = { navigateToLoginAfterLogout() },
             )
         }
         composable(Routes.CreateGroup) {
@@ -217,12 +224,7 @@ fun CuentasClarasNavHost(
                 onOpenExpense = { expenseId ->
                     navController.navigate(Routes.expenseDetail(groupId, expenseId))
                 },
-                onLogout = {
-                    authViewModel.logout()
-                    navController.navigate(Routes.Login) {
-                        popUpTo(0) { inclusive = true }
-                    }
-                },
+                onLogout = { navigateToLoginAfterLogout() },
             )
         }
         composable(

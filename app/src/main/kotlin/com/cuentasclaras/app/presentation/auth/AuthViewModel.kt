@@ -149,6 +149,10 @@ class AuthViewModel @Inject constructor(
         }
     }
 
+    suspend fun logoutAndAwait() {
+        runCatching { authRepository.signOut() }
+    }
+
     fun showError(message: String) {
         _formState.value = _formState.value.copy(isLoading = false, errorMessage = message)
     }

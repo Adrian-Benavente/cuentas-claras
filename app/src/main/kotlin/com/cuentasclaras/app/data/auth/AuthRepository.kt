@@ -76,8 +76,10 @@ class AuthRepository @Inject constructor(
     }
 
     suspend fun signOut() {
-        client.auth.signOut()
+        // Mark signed-out first so LoginScreen does not bounce back to Home
+        // while the network sign-out is still in flight.
         _sessionState.value = SessionState.SignedOut
+        runCatching { client.auth.signOut() }
     }
 
     fun currentUserId(): UserId? {
