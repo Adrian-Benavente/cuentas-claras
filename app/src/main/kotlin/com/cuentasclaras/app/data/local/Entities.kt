@@ -46,6 +46,9 @@ data class ExpenseEntity(
     val createdBy: String,
     val createdAt: String,
     val updatedAt: String,
+    val installmentSeriesId: String? = null,
+    val installmentIndex: Int? = null,
+    val installmentCount: Int? = null,
 )
 
 @Entity(

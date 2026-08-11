@@ -80,6 +80,9 @@ fun ExpenseDto.toDomain(): Expense {
         createdAt = Instant.parse(createdAt),
         updatedAt = Instant.parse(updatedAt),
         splits = splits.map { it.toDomain(currency) },
+        installmentSeriesId = installmentSeriesId,
+        installmentIndex = installmentIndex,
+        installmentCount = installmentCount,
     )
 }
 

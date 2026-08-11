@@ -2,6 +2,7 @@ package com.cuentasclaras.app.presentation.expense
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -28,6 +29,7 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
+import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
@@ -38,6 +40,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
@@ -51,6 +54,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.cuentasclaras.app.presentation.components.ExpenseDateField
 import com.cuentasclaras.app.ui.theme.GroupThemed
 import com.cuentasclaras.app.util.MoneyFormatter
+import com.cuentasclaras.domain.finance.InstallmentPlanner
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -109,13 +113,68 @@ fun ExpenseEditorScreen(
             OutlinedTextField(
                 value = state.amountInput,
                 onValueChange = viewModel::onAmountChange,
-                label = { Text("Monto (${state.currency.code})") },
+                label = {
+                    Text(
+                        if (state.isInstallment && expenseId == null) {
+                            "Monto total (${state.currency.code})"
+                        } else {
+                            "Monto (${state.currency.code})"
+                        },
+                    )
+                },
                 singleLine = true,
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
                 modifier = Modifier
                     .fillMaxWidth()
                     .semantics { contentDescription = "Monto del gasto" },
             )
+
+            if (expenseId == null) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Text(
+                        "En cuotas",
+                        style = MaterialTheme.typography.bodyLarge,
+                        modifier = Modifier.semantics { contentDescription = "Gasto en cuotas" },
+                    )
+                    Switch(
+                        checked = state.isInstallment,
+                        onCheckedChange = viewModel::onInstallmentEnabledChange,
+                    )
+                }
+                if (state.isInstallment) {
+                    OutlinedTextField(
+                        value = state.installmentCountInput,
+                        onValueChange = viewModel::onInstallmentCountChange,
+                        label = { Text("Cantidad de cuotas") },
+                        singleLine = true,
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                        supportingText = {
+                            Text(
+                                "Entre ${InstallmentPlanner.MIN_COUNT} y ${InstallmentPlanner.MAX_COUNT}",
+                            )
+                        },
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .semantics { contentDescription = "Cantidad de cuotas" },
+                    )
+                    state.installmentPreview?.let { preview ->
+                        Text(
+                            preview,
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+                    Text(
+                        "La fecha es la de la primera cuota. Se crean gastos en los meses siguientes.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+            }
 
             var payerExpanded by remember { mutableStateOf(false) }
             val selectedPayer = state.members.find { it.userId == state.paidBy }
@@ -225,6 +284,7 @@ fun ExpenseDetailScreen(
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
     var showDeleteConfirm by remember { mutableStateOf(false) }
+    var showDeleteSeriesConfirm by remember { mutableStateOf(false) }
     val snackbarHostState = remember { SnackbarHostState() }
     val lifecycleOwner = LocalLifecycleOwner.current
 
@@ -285,6 +345,13 @@ fun ExpenseDetailScreen(
             ) {
                 Text(expense.description, style = MaterialTheme.typography.headlineSmall)
                 Text(MoneyFormatter.format(expense.amount), style = MaterialTheme.typography.headlineMedium)
+                if (expense.isInstallment) {
+                    Text(
+                        "Cuota ${expense.installmentIndex}/${expense.installmentCount}",
+                        style = MaterialTheme.typography.labelLarge,
+                        color = MaterialTheme.colorScheme.primary,
+                    )
+                }
                 Text("Pagó: $payer")
                 Text("Fecha: ${expense.date}")
                 Spacer(Modifier.height(8.dp))
@@ -330,7 +397,13 @@ fun ExpenseDetailScreen(
                         Text("Editar")
                     }
                     OutlinedButton(
-                        onClick = { showDeleteConfirm = true },
+                        onClick = {
+                            if (expense.isInstallment) {
+                                showDeleteSeriesConfirm = true
+                            } else {
+                                showDeleteConfirm = true
+                            }
+                        },
                         modifier = Modifier
                             .fillMaxWidth()
                             .semantics { contentDescription = "Eliminar gasto" },
@@ -356,6 +429,41 @@ fun ExpenseDetailScreen(
                 },
                 dismissButton = {
                     TextButton(onClick = { showDeleteConfirm = false }) { Text("Cancelar") }
+                },
+            )
+        }
+
+        if (showDeleteSeriesConfirm) {
+            val expense = state.expense
+            AlertDialog(
+                onDismissRequest = { showDeleteSeriesConfirm = false },
+                title = { Text("Eliminar cuota") },
+                text = {
+                    Text(
+                        "Este gasto es la cuota ${expense?.installmentIndex}/${expense?.installmentCount}. " +
+                            "¿Querés borrar solo esta o toda la serie?",
+                    )
+                },
+                confirmButton = {
+                    TextButton(
+                        onClick = {
+                            showDeleteSeriesConfirm = false
+                            viewModel.delete()
+                        },
+                    ) { Text("Solo esta") }
+                },
+                dismissButton = {
+                    Row {
+                        TextButton(
+                            onClick = {
+                                showDeleteSeriesConfirm = false
+                                viewModel.deleteSeries()
+                            },
+                        ) { Text("Toda la serie") }
+                        TextButton(onClick = { showDeleteSeriesConfirm = false }) {
+                            Text("Cancelar")
+                        }
+                    }
                 },
             )
         }

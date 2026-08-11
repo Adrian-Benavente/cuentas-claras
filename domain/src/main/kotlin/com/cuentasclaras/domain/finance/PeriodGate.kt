@@ -33,10 +33,4 @@ object PeriodGate {
         if (!selectedPeriodClosed) return true
         return YearMonth.from(today) != selectedPeriod
     }
-
-    fun coerceNotFuture(period: YearMonth, now: YearMonth = YearMonth.now()): YearMonth =
-        if (period.isAfter(now)) now else period
-
-    fun canGoToNextPeriod(period: YearMonth, now: YearMonth = YearMonth.now()): Boolean =
-        period.isBefore(now)
 }

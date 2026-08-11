@@ -11,6 +11,7 @@ import com.cuentasclaras.app.data.period.PeriodRepository
 import com.cuentasclaras.app.util.MoneyFormatter
 import com.cuentasclaras.app.util.OfflineMessages
 import com.cuentasclaras.app.util.UserFacingError
+import com.cuentasclaras.domain.finance.InstallmentPlanner
 import com.cuentasclaras.domain.finance.PeriodGate
 import com.cuentasclaras.domain.model.Currency
 import com.cuentasclaras.domain.model.Expense
@@ -27,6 +28,8 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import java.time.LocalDate
 import java.time.YearMonth
+import java.time.format.TextStyle
+import java.util.Locale
 import javax.inject.Inject
 
 data class ExpenseEditorUiState(
@@ -38,6 +41,8 @@ data class ExpenseEditorUiState(
     val currency: Currency = Currency.ARS,
     val themeId: GroupThemeId = GroupThemeId.FOREST,
     val closedPeriods: Set<YearMonth> = emptySet(),
+    val isInstallment: Boolean = false,
+    val installmentCountInput: String = "3",
     val isLoading: Boolean = false,
     val isSaving: Boolean = false,
     val errorMessage: String? = null,
@@ -51,8 +56,44 @@ data class ExpenseEditorUiState(
     val isExistingPeriodClosed: Boolean
         get() = existing?.let { !PeriodGate.canMutateExpense(it.date, closedPeriods) } == true
 
+    val parsedInstallmentCount: Int?
+        get() = installmentCountInput.trim().toIntOrNull()
+
+    val installmentPreview: String?
+        get() {
+            if (!isInstallment || existing != null) return null
+            val total = MoneyFormatter.parseToMinor(amountInput, currency) ?: return null
+            val count = parsedInstallmentCount ?: return null
+            if (total <= 0L || count !in InstallmentPlanner.MIN_COUNT..InstallmentPlanner.MAX_COUNT) {
+                return null
+            }
+            return runCatching {
+                val slices = InstallmentPlanner.plan(total, count, date)
+                val first = slices.first().amountMinor
+                val lastDate = slices.last().date
+                val monthLabel = lastDate.month
+                    .getDisplayName(TextStyle.FULL, Locale.forLanguageTag("es-AR"))
+                    .replaceFirstChar { it.titlecase(Locale.forLanguageTag("es-AR")) }
+                "Cada cuota: ${MoneyFormatter.format(Money(first, currency))} · " +
+                    "$count gastos · hasta $monthLabel ${lastDate.year}"
+            }.getOrNull()
+        }
+
     val isMutationBlocked: Boolean
-        get() = isSelectedDateClosed || isExistingPeriodClosed
+        get() {
+            if (isExistingPeriodClosed) return true
+            if (!isInstallment || existing != null) return isSelectedDateClosed
+            val total = MoneyFormatter.parseToMinor(amountInput, currency) ?: return isSelectedDateClosed
+            val count = parsedInstallmentCount ?: return isSelectedDateClosed
+            if (total <= 0L || count !in InstallmentPlanner.MIN_COUNT..InstallmentPlanner.MAX_COUNT) {
+                return isSelectedDateClosed
+            }
+            return runCatching {
+                InstallmentPlanner.plan(total, count, date).any {
+                    !PeriodGate.canMutateExpense(it.date, closedPeriods)
+                }
+            }.getOrDefault(isSelectedDateClosed)
+        }
 }
 
 @HiltViewModel
@@ -122,12 +163,23 @@ class ExpenseEditorViewModel @Inject constructor(
         _state.value = _state.value.copy(date = date, errorMessage = null)
     }
 
+    fun onInstallmentEnabledChange(enabled: Boolean) {
+        if (_state.value.existing != null) return
+        _state.value = _state.value.copy(isInstallment = enabled, errorMessage = null)
+    }
+
+    fun onInstallmentCountChange(value: String) {
+        val filtered = value.filter { it.isDigit() }.take(2)
+        _state.value = _state.value.copy(installmentCountInput = filtered, errorMessage = null)
+    }
+
     fun save() {
         val current = _state.value
         val description = current.description.trim()
         val amountMinor = MoneyFormatter.parseToMinor(current.amountInput, current.currency)
         val paidBy = current.paidBy
         val createdBy = authRepository.currentUserId()
+        val installmentCount = current.parsedInstallmentCount
 
         when {
             description.isBlank() -> {
@@ -157,9 +209,22 @@ class ExpenseEditorViewModel @Inject constructor(
                 )
                 return
             }
+            current.isInstallment && expenseId == null &&
+                (installmentCount == null ||
+                    installmentCount !in InstallmentPlanner.MIN_COUNT..InstallmentPlanner.MAX_COUNT) -> {
+                _state.value = current.copy(
+                    errorMessage = "Ingresá entre ${InstallmentPlanner.MIN_COUNT} y " +
+                        "${InstallmentPlanner.MAX_COUNT} cuotas.",
+                )
+                return
+            }
             current.isMutationBlocked -> {
                 _state.value = current.copy(
-                    errorMessage = "Este período está cerrado. Reabrilo para hacer cambios.",
+                    errorMessage = if (current.isInstallment && expenseId == null) {
+                        "Algún mes de la serie está cerrado. Reabrilo o elegí otra fecha de inicio."
+                    } else {
+                        "Este período está cerrado. Reabrilo para hacer cambios."
+                    },
                 )
                 return
             }
@@ -174,7 +239,17 @@ class ExpenseEditorViewModel @Inject constructor(
             val amount = Money(amountMinor!!, current.currency)
             val participants = current.members.map { it.userId }
             runCatching {
-                if (expenseId == null) {
+                if (expenseId == null && current.isInstallment) {
+                    expenseRepository.createInstallments(
+                        groupId = groupId,
+                        description = description,
+                        totalAmount = amount,
+                        paidBy = paidBy!!,
+                        startDate = current.date,
+                        installmentCount = installmentCount!!,
+                        participantIds = participants,
+                    )
+                } else if (expenseId == null) {
                     expenseRepository.createExpense(
                         groupId = groupId,
                         description = description,
@@ -272,6 +347,14 @@ class ExpenseDetailViewModel @Inject constructor(
     }
 
     fun delete() {
+        delete(series = false)
+    }
+
+    fun deleteSeries() {
+        delete(series = true)
+    }
+
+    private fun delete(series: Boolean) {
         if (_state.value.isPeriodClosed) {
             _state.value = _state.value.copy(
                 errorMessage = "Este período está cerrado. Reabrilo para hacer cambios.",
@@ -282,8 +365,19 @@ class ExpenseDetailViewModel @Inject constructor(
             _state.value = _state.value.copy(errorMessage = OfflineMessages.NEED_CONNECTION)
             return
         }
+        val seriesId = _state.value.expense?.installmentSeriesId
+        if (series && seriesId.isNullOrBlank()) {
+            _state.value = _state.value.copy(errorMessage = "Este gasto no forma parte de una serie.")
+            return
+        }
         viewModelScope.launch {
-            runCatching { expenseRepository.deleteExpense(expenseId) }
+            runCatching {
+                if (series) {
+                    expenseRepository.deleteInstallmentSeries(seriesId!!)
+                } else {
+                    expenseRepository.deleteExpense(expenseId)
+                }
+            }
                 .onSuccess { _state.value = _state.value.copy(deleted = true) }
                 .onFailure { error ->
                     _state.value = _state.value.copy(

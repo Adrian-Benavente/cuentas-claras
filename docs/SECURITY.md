@@ -23,8 +23,10 @@ Profiles of current co-members are readable. After someone is removed, their pro
 | Remove member | OWNER | RPC `remove_group_member` (MEMBER only; not self) |
 | Rotate invite code | OWNER | RPC `rotate_invite_code` |
 | Create expense | Member | RPC `create_expense` (≥2 members; payer must be member; splits must sum; period open) |
+| Create installment expenses | Member | RPC `create_installment_expenses` (total+N; all months open; 2≤N≤48) |
 | Update expense | Creator or OWNER | RPC `update_expense` (period open for old and new dates) |
 | Delete expense | Creator or OWNER | RLS `expenses_delete` + period-open trigger |
+| Delete installment series | Creator or OWNER | RPC `delete_installment_series` (fails if any cuota in closed period) |
 | Read settlement payments | Member | RLS `settlement_payments_select` |
 | Record settlement payment | Member (`created_by = auth.uid()`) | RLS `settlement_payments_insert` + period-open trigger |
 | Delete settlement payment | Member | RLS `settlement_payments_delete` + period-open trigger |
@@ -42,7 +44,8 @@ A period is **OPEN** unless a row exists in `group_period_closures` for `(group_
 
 When closed, the server rejects:
 
-- `create_expense` / `update_expense` if the expense date (old or new) falls in that month
+- `create_expense` / `create_installment_expenses` / `update_expense` if the expense date (old or new) falls in that month
+- `delete_installment_series` if any cuota in the series falls in a closed month
 - DELETE on `expenses` for expenses in that month (trigger)
 - INSERT / DELETE on `settlement_payments` for that month (trigger)
 

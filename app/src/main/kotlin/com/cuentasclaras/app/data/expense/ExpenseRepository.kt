@@ -17,6 +17,7 @@ import io.github.jan.supabase.postgrest.from
 import io.github.jan.supabase.postgrest.postgrest
 import io.github.jan.supabase.postgrest.query.Columns
 import io.github.jan.supabase.postgrest.rpc
+import kotlinx.serialization.json.add
 import kotlinx.serialization.json.addJsonObject
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
@@ -107,6 +108,39 @@ class ExpenseRepository @Inject constructor(
         return client.postgrest.rpc("create_expense", payload).decodeAs<ExpenseDto>().toDomain()
     }
 
+    suspend fun createInstallments(
+        groupId: GroupId,
+        description: String,
+        totalAmount: Money,
+        paidBy: UserId,
+        startDate: LocalDate,
+        installmentCount: Int,
+        participantIds: List<UserId>,
+    ): List<Expense> {
+        val payload = buildJsonObject {
+            put("p_group_id", groupId.value)
+            put("p_description", description.trim())
+            put("p_amount_minor", totalAmount.amountMinor)
+            put("p_currency", totalAmount.currency.code)
+            put("p_paid_by", paidBy.value)
+            put("p_start_date", startDate.toString())
+            put("p_installment_count", installmentCount)
+            putJsonArray("p_participant_ids") {
+                participantIds.forEach { add(it.value) }
+            }
+        }
+        val created = client.postgrest.rpc("create_installment_expenses", payload)
+            .decodeAs<List<ExpenseDto>>()
+            .map { it.toDomain() }
+        if (localCache.hasExpensesSnapshot(groupId)) {
+            val merged = (localCache.listExpenses(groupId) + created)
+                .distinctBy { it.id.value }
+                .sortedByDescending { it.date }
+            localCache.replaceExpenses(groupId, merged)
+        }
+        return created
+    }
+
     suspend fun updateExpense(
         expenseId: ExpenseId,
         description: String,
@@ -140,5 +174,12 @@ class ExpenseRepository @Inject constructor(
         client.from("expenses").delete {
             filter { eq("id", expenseId.value) }
         }
+    }
+
+    suspend fun deleteInstallmentSeries(seriesId: String) {
+        val payload = buildJsonObject {
+            put("p_series_id", seriesId)
+        }
+        client.postgrest.rpc("delete_installment_series", payload)
     }
 }

@@ -47,6 +47,9 @@ data class ExpenseDto(
     @SerialName("created_by") val createdBy: String,
     @SerialName("created_at") val createdAt: String,
     @SerialName("updated_at") val updatedAt: String,
+    @SerialName("installment_series_id") val installmentSeriesId: String? = null,
+    @SerialName("installment_index") val installmentIndex: Int? = null,
+    @SerialName("installment_count") val installmentCount: Int? = null,
     @SerialName("expense_splits") val splits: List<ExpenseSplitDto> = emptyList(),
 )
 

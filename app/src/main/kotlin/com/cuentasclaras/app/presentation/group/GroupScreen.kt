@@ -380,7 +380,6 @@ private fun SummaryTab(
     val needsInvite = content.members.size < 2
     val periodClosed = content.isPeriodClosed
     var showPeriodPicker by remember { mutableStateOf(false) }
-    val canGoNext = PeriodGate.canGoToNextPeriod(content.period)
 
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
@@ -408,7 +407,6 @@ private fun SummaryTab(
                 )
                 IconButton(
                     onClick = onNext,
-                    enabled = canGoNext,
                     modifier = Modifier.semantics { contentDescription = "Mes siguiente" },
                 ) {
                     Icon(Icons.AutoMirrored.Filled.NavigateNext, contentDescription = null)
@@ -584,10 +582,8 @@ private fun PeriodMonthPickerDialog(
     onDismiss: () -> Unit,
     onConfirm: (YearMonth) -> Unit,
 ) {
-    val currentMonth = remember { YearMonth.now() }
     var displayedYear by remember { mutableIntStateOf(selectedPeriod.year) }
     val locale = Locale.forLanguageTag("es-AR")
-    val canGoNextYear = displayedYear < currentMonth.year
 
     AlertDialog(
         onDismissRequest = onDismiss,
@@ -612,7 +608,6 @@ private fun PeriodMonthPickerDialog(
                     )
                     IconButton(
                         onClick = { displayedYear += 1 },
-                        enabled = canGoNextYear,
                         modifier = Modifier.semantics { contentDescription = "Año siguiente" },
                     ) {
                         Icon(Icons.AutoMirrored.Filled.NavigateNext, contentDescription = null)
@@ -627,7 +622,6 @@ private fun PeriodMonthPickerDialog(
                             for (col in 1..3) {
                                 val monthNumber = row * 3 + col
                                 val period = YearMonth.of(displayedYear, monthNumber)
-                                val enabled = !period.isAfter(currentMonth)
                                 val selected = period == selectedPeriod
                                 val label = Month.of(monthNumber)
                                     .getDisplayName(TextStyle.SHORT, locale)
@@ -635,7 +629,6 @@ private fun PeriodMonthPickerDialog(
                                 FilterChip(
                                     selected = selected,
                                     onClick = { onConfirm(period) },
-                                    enabled = enabled,
                                     label = { Text(label) },
                                     modifier = Modifier
                                         .weight(1f)

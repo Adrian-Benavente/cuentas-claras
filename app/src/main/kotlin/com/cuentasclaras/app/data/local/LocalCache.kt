@@ -222,6 +222,9 @@ private fun Expense.toEntity() = ExpenseEntity(
     createdBy = createdBy.value,
     createdAt = createdAt.toString(),
     updatedAt = updatedAt.toString(),
+    installmentSeriesId = installmentSeriesId,
+    installmentIndex = installmentIndex,
+    installmentCount = installmentCount,
 )
 
 private fun ExpenseEntity.toDomain(splits: List<ExpenseSplitEntity>): Expense {
@@ -247,6 +250,9 @@ private fun ExpenseEntity.toDomain(splits: List<ExpenseSplitEntity>): Expense {
                 share = Money(split.shareAmountMinor, currency),
             )
         },
+        installmentSeriesId = installmentSeriesId,
+        installmentIndex = installmentIndex,
+        installmentCount = installmentCount,
     )
 }
 

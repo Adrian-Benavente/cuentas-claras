@@ -56,20 +56,4 @@ class PeriodGateTest {
             ),
         ).isTrue()
     }
-
-    @Test
-    fun coerceNotFuture_clampsFutureMonths() {
-        val now = YearMonth.of(2026, 8)
-        assertThat(PeriodGate.coerceNotFuture(YearMonth.of(2026, 9), now)).isEqualTo(now)
-        assertThat(PeriodGate.coerceNotFuture(now, now)).isEqualTo(now)
-        assertThat(PeriodGate.coerceNotFuture(july, now)).isEqualTo(july)
-    }
-
-    @Test
-    fun canGoToNextPeriod_falseOnCurrentMonth() {
-        val now = YearMonth.of(2026, 8)
-        assertThat(PeriodGate.canGoToNextPeriod(july, now)).isTrue()
-        assertThat(PeriodGate.canGoToNextPeriod(now, now)).isFalse()
-        assertThat(PeriodGate.canGoToNextPeriod(YearMonth.of(2026, 9), now)).isFalse()
-    }
 }

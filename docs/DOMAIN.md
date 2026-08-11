@@ -83,6 +83,17 @@ Settlement payments store `period_year` / `period_month` explicitly.
   (`update_expense` still allows re-splitting among current members).
 - Edit/delete recalculates balances from source expenses (no cached authoritative balances).
 
+### Installments (cuotas)
+
+- Create with **total** amount + **N** cuotas (`2 ≤ N ≤ 48`) via `create_installment_expenses`.
+- Always materializes the full series `1/N` … `N/N` from the start date.
+- Total is split across N months with the same remainder rule as equal split (`base = total/N`, first `total%N` get +1).
+- Each cuota is a normal expense in its month (description ends with `(k/N)`), linked by `installment_series_id`.
+- Dates keep the start day-of-month, clamped to each month's length.
+- If any target month is **CLOSED**, the whole create fails.
+- Deleting the series fails if any cuota sits in a closed period; otherwise deletes all cuotas.
+- Editing a single cuota is allowed like a normal expense (MVP: no “edit whole series”).
+
 ## Membership changes
 
 - OWNER may remove a MEMBER via `remove_group_member` (not self, not OWNER).

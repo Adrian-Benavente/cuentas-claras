@@ -38,10 +38,15 @@ Usá dos cuentas (email o Google) en emulador/dispositivo.
 - [ ] Eliminar gasto (confirmación) y ver snackbar "Gasto eliminado"
 - [ ] Saldos recalculados tras editar/eliminar
 - [ ] (Legacy) Si hay un gasto creado solo, el aviso de reparto incompleto y re-guardar lo redistribuye
+- [ ] **En cuotas**: switch al crear → total + N; se crean N gastos `(1/N)`…`(N/N)` en meses sucesivos
+- [ ] Preview muestra monto por cuota y hasta qué mes
+- [ ] Navegar a un mes futuro y ver la cuota correspondiente en Resumen/Gastos
+- [ ] Detalle de cuota: eliminar **Solo esta** o **Toda la serie**
 
 ## Período
 
-- [ ] Navegar mes anterior / siguiente en Resumen
+- [ ] Navegar mes anterior / siguiente en Resumen (incluye meses futuros)
+- [ ] Tap en mes/año abre selector de período (incluye futuros)
 - [ ] Un gasto con fecha de otro mes aparece solo en ese período
 - [ ] Resumen muestra chip **Abierto** / **Cerrado**
 - [ ] OWNER: **Cerrar período** (confirmación) → chip Cerrado; MEMBER no ve la acción

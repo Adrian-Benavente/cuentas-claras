@@ -13,7 +13,7 @@ import androidx.room.RoomDatabase
         PeriodClosureEntity::class,
         CacheFlagEntity::class,
     ],
-    version = 3,
+    version = 4,
     exportSchema = false,
 )
 abstract class CuentasClarasDatabase : RoomDatabase() {

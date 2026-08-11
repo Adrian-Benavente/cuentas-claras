@@ -21,8 +21,12 @@ data class Expense(
     val createdAt: Instant,
     val updatedAt: Instant,
     val splits: List<ExpenseSplit>,
+    val installmentSeriesId: String? = null,
+    val installmentIndex: Int? = null,
+    val installmentCount: Int? = null,
 ) {
     val period: YearMonth get() = YearMonth.from(date)
+    val isInstallment: Boolean get() = installmentSeriesId != null
 
     init {
         require(description.isNotBlank()) { "Expense description must not be blank" }
@@ -33,6 +37,16 @@ data class Expense(
         }
         require(splits.all { it.share.currency == amount.currency }) {
             "All splits must use the expense currency"
+        }
+        val seriesFields = listOf(installmentSeriesId, installmentIndex, installmentCount)
+        require(seriesFields.all { it == null } || seriesFields.all { it != null }) {
+            "Installment fields must all be null or all set"
+        }
+        if (installmentSeriesId != null) {
+            require(installmentCount!! >= 2) { "Installment count must be at least 2" }
+            require(installmentIndex!! in 1..installmentCount) {
+                "Installment index must be between 1 and count"
+            }
         }
     }
 }

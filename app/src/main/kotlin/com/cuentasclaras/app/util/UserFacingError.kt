@@ -33,6 +33,15 @@ object UserFacingError {
             "No encontramos un grupo con ese código."
         message.contains("group needs at least two members") ->
             "Necesitás al menos otra persona en el grupo para cargar un gasto."
+        message.contains("invalid installment count") ->
+            "La cantidad de cuotas tiene que ser entre 2 y 48."
+        message.contains("cannot delete installment in closed period") ->
+            "No se puede borrar toda la serie: alguna cuota está en un período cerrado. " +
+                "Borralas de a una desde los meses abiertos."
+        message.contains("only creator or owner can delete installment series") ->
+            "Solo quien creó la serie o el administrador puede eliminarla."
+        message.contains("installment series not found") ->
+            "No encontramos esa serie de cuotas."
         message.contains("period is closed") ->
             "Este período está cerrado. Reabrilo para hacer cambios."
         message.contains("only owner can close") || message.contains("only owner can reopen") ->
