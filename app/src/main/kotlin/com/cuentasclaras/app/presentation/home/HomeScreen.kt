@@ -100,6 +100,8 @@ fun HomeScreen(
         floatingActionButton = {
             FloatingActionButton(
                 onClick = onCreateGroup,
+                containerColor = MaterialTheme.colorScheme.primary,
+                contentColor = MaterialTheme.colorScheme.onPrimary,
                 modifier = Modifier.semantics { contentDescription = "Crear grupo" },
             ) {
                 Icon(Icons.Default.Add, contentDescription = null)

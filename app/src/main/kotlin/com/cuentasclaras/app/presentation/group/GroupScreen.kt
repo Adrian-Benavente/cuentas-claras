@@ -197,6 +197,8 @@ fun GroupScreen(
                 if (tabIndex == 1 && canAddExpenses) {
                     FloatingActionButton(
                         onClick = onAddExpense,
+                        containerColor = MaterialTheme.colorScheme.primary,
+                        contentColor = MaterialTheme.colorScheme.onPrimary,
                         modifier = Modifier.semantics { contentDescription = "Agregar gasto" },
                     ) {
                         Icon(Icons.Default.Add, contentDescription = null)
