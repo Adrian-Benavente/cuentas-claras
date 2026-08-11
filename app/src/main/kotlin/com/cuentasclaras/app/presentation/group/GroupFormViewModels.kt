@@ -1,8 +1,10 @@
 package com.cuentasclaras.app.presentation.group
 
+import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.cuentasclaras.app.data.group.GroupRepository
+import com.cuentasclaras.app.util.InviteShare
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -59,17 +61,33 @@ data class JoinGroupUiState(
 
 @HiltViewModel
 class JoinGroupViewModel @Inject constructor(
+    savedStateHandle: SavedStateHandle,
     private val groupRepository: GroupRepository,
 ) : ViewModel() {
-    private val _state = MutableStateFlow(JoinGroupUiState())
+    private val _state = MutableStateFlow(
+        JoinGroupUiState(code = InviteShare.normalizeCode(savedStateHandle.get<String>("code").orEmpty())),
+    )
     val state: StateFlow<JoinGroupUiState> = _state.asStateFlow()
 
     fun onCodeChange(value: String) {
-        _state.value = _state.value.copy(code = value.uppercase(), errorMessage = null)
+        _state.value = _state.value.copy(
+            code = InviteShare.normalizeCode(value),
+            errorMessage = null,
+        )
+    }
+
+    fun prefillCode(raw: String) {
+        val normalized = InviteShare.normalizeCode(raw)
+        if (normalized.isBlank()) return
+        _state.value = _state.value.copy(code = normalized, errorMessage = null)
+    }
+
+    fun onPasteEmpty() {
+        _state.value = _state.value.copy(errorMessage = "No hay texto en el portapapeles.")
     }
 
     fun join() {
-        val code = _state.value.code.trim()
+        val code = InviteShare.normalizeCode(_state.value.code)
         if (code.length < 4) {
             _state.value = _state.value.copy(errorMessage = "Ingresá el código de invitación.")
             return

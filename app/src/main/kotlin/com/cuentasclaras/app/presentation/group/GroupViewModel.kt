@@ -90,7 +90,13 @@ class GroupViewModel @Inject constructor(
     fun rotateInviteCode() {
         viewModelScope.launch {
             runCatching { groupRepository.rotateInviteCode(groupId) }
-                .onSuccess { refresh(showLoading = false) }
+                .onSuccess {
+                    _messages.tryEmit("Código actualizado")
+                    refresh(showLoading = false)
+                }
+                .onFailure {
+                    _messages.tryEmit("No pudimos generar un nuevo código. Intentá de nuevo.")
+                }
         }
     }
 

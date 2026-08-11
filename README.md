@@ -76,6 +76,8 @@ export PATH="$ANDROID_HOME/platform-tools:$PATH"
 - Al volver a un grupo tras crear/editar/eliminar un gasto, la app **refresca** resumen e historial automáticamente.
 - Tras guardar o eliminar verás un snackbar de confirmación.
 - La fecha del gasto se elige con un date picker (no texto libre).
+- Tras crear un grupo, la app abre **Configuración** para invitar (hace falta ≥2 miembros para cargar gastos).
+- Invitaciones: copiar/compartir código, o abrir `cuentasclaras://join/{CODIGO}` si la otra persona ya tiene la app.
 
 ## Reglas de negocio (MVP)
 

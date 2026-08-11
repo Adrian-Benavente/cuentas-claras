@@ -12,11 +12,13 @@ Usá dos cuentas (email o Google) en emulador/dispositivo.
 
 ## Grupos e invitaciones
 
-- [ ] Usuario A crea un grupo
+- [ ] Usuario A crea un grupo y aterriza en **Configuración** (invitar)
 - [ ] Con un solo miembro: no aparece FAB de gastos; Resumen/Gastos orientan a invitar
-- [ ] En Configuración ve el código de invitación
-- [ ] Compartir código (share sheet)
-- [ ] Usuario B se une con el código
+- [ ] Ve el código, **Copiar** muestra snackbar "Código copiado"
+- [ ] **Compartir** abre share sheet con pasos + link `cuentasclaras://join/…`
+- [ ] Owner: **Nuevo código** pide confirmación; código viejo deja de funcionar
+- [ ] Usuario B se une pegando el código (o escribiéndolo)
+- [ ] (Opcional) Deep link: `adb shell am start -a android.intent.action.VIEW -d "cuentasclaras://join/CODIGO"`
 - [ ] Ambos ven al otro en Miembros
 
 ## Gastos

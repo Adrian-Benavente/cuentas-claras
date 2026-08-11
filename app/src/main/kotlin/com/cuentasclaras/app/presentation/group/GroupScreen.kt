@@ -1,5 +1,8 @@
 package com.cuentasclaras.app.presentation.group
 
+import android.content.ClipData
+import android.content.ClipboardManager
+import android.content.Context
 import android.content.Intent
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -19,6 +22,7 @@ import androidx.compose.material.icons.automirrored.filled.NavigateBefore
 import androidx.compose.material.icons.automirrored.filled.NavigateNext
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Share
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
@@ -38,7 +42,9 @@ import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -56,12 +62,14 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.cuentasclaras.app.presentation.components.FullScreenLoading
 import com.cuentasclaras.app.presentation.components.FullScreenMessage
 import com.cuentasclaras.app.presentation.components.UiState
+import com.cuentasclaras.app.util.InviteShare
 import com.cuentasclaras.app.util.MoneyFormatter
 import com.cuentasclaras.domain.model.Expense
 import com.cuentasclaras.domain.model.GroupMember
 import com.cuentasclaras.domain.model.MemberBalance
 import com.cuentasclaras.domain.model.MemberRole
 import com.cuentasclaras.domain.model.SuggestedTransfer
+import kotlinx.coroutines.launch
 import java.time.format.TextStyle
 import java.util.Locale
 
@@ -69,6 +77,7 @@ import java.util.Locale
 @Composable
 fun GroupScreen(
     groupId: String,
+    focusInvite: Boolean = false,
     flashMessage: String? = null,
     onFlashConsumed: () -> Unit = {},
     onBack: () -> Unit,
@@ -78,9 +87,10 @@ fun GroupScreen(
     viewModel: GroupViewModel = hiltViewModel(),
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
-    var tabIndex by rememberSaveable { mutableIntStateOf(0) }
+    var tabIndex by rememberSaveable { mutableIntStateOf(if (focusInvite) 3 else 0) }
     val tabs = listOf("Resumen", "Gastos", "Miembros", "Configuración")
     val snackbarHostState = remember { SnackbarHostState() }
+    var showRotateConfirm by remember { mutableStateOf(false) }
 
     val lifecycleOwner = LocalLifecycleOwner.current
     DisposableEffect(lifecycleOwner, viewModel) {
@@ -176,13 +186,42 @@ fun GroupScreen(
                         2 -> MembersTab(members = ui.data.members)
                         3 -> SettingsTab(
                             content = ui.data,
-                            onRotateCode = viewModel::rotateInviteCode,
+                            highlightInvite = focusInvite || ui.data.members.size < 2,
+                            onCodeCopied = { snackbarHostState.showSnackbar("Código copiado") },
+                            onRequestRotateCode = { showRotateConfirm = true },
                             onLogout = onLogout,
                         )
                     }
                 }
             }
         }
+    }
+
+    if (showRotateConfirm) {
+        AlertDialog(
+            onDismissRequest = { showRotateConfirm = false },
+            title = { Text("Nuevo código") },
+            text = {
+                Text(
+                    "Se invalidará el código actual. Quien todavía no se unió va a necesitar el nuevo.",
+                )
+            },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        showRotateConfirm = false
+                        viewModel.rotateInviteCode()
+                    },
+                ) {
+                    Text("Generar nuevo")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showRotateConfirm = false }) {
+                    Text("Cancelar")
+                }
+            },
+        )
     }
 }
 
@@ -511,11 +550,21 @@ private fun MembersTab(members: List<GroupMember>) {
 @Composable
 private fun SettingsTab(
     content: GroupContent,
-    onRotateCode: () -> Unit,
+    highlightInvite: Boolean,
+    onCodeCopied: suspend () -> Unit,
+    onRequestRotateCode: () -> Unit,
     onLogout: () -> Unit,
 ) {
     val context = LocalContext.current
+    val scope = rememberCoroutineScope()
     Column(Modifier.padding(24.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        if (highlightInvite) {
+            Text(
+                "Invitá a alguien para poder cargar gastos.",
+                style = MaterialTheme.typography.bodyLarge,
+                fontWeight = FontWeight.Medium,
+            )
+        }
         Text("Código de invitación", style = MaterialTheme.typography.titleMedium)
         Text(
             content.group.inviteCode,
@@ -525,14 +574,31 @@ private fun SettingsTab(
                 contentDescription = "Código de invitación ${content.group.inviteCode}"
             },
         )
+        Text(
+            "Compartilo o copialo. Quien se una tiene que abrir la app y tocar \"Unirme a un grupo\".",
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            TextButton(
+                onClick = {
+                    val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
+                    clipboard.setPrimaryClip(
+                        ClipData.newPlainText("Código de invitación", content.group.inviteCode),
+                    )
+                    scope.launch { onCodeCopied() }
+                },
+                modifier = Modifier.semantics { contentDescription = "Copiar código" },
+            ) {
+                Text("Copiar")
+            }
             TextButton(
                 onClick = {
                     val send = Intent(Intent.ACTION_SEND).apply {
                         type = "text/plain"
                         putExtra(
                             Intent.EXTRA_TEXT,
-                            "Unite a ${content.group.name} en Cuentas Claras con el código ${content.group.inviteCode}",
+                            InviteShare.shareText(content.group.name, content.group.inviteCode),
                         )
                     }
                     context.startActivity(Intent.createChooser(send, "Compartir código"))
@@ -543,7 +609,12 @@ private fun SettingsTab(
                 Text("  Compartir")
             }
             if (content.isOwner) {
-                TextButton(onClick = onRotateCode) { Text("Nuevo código") }
+                TextButton(
+                    onClick = onRequestRotateCode,
+                    modifier = Modifier.semantics { contentDescription = "Nuevo código" },
+                ) {
+                    Text("Nuevo código")
+                }
             }
         }
         Spacer(Modifier.height(24.dp))
