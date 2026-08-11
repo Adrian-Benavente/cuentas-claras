@@ -18,6 +18,7 @@ import com.cuentasclaras.domain.model.Money
 import com.cuentasclaras.domain.model.SettlementPayment
 import com.cuentasclaras.domain.model.SettlementPaymentId
 import com.cuentasclaras.domain.model.SplitType
+import com.cuentasclaras.domain.model.GroupThemeId
 import com.cuentasclaras.domain.model.User
 import com.cuentasclaras.domain.model.UserId
 import java.time.Instant
@@ -42,6 +43,7 @@ fun GroupDto.toDomain(): Group = Group(
     createdAt = Instant.parse(createdAt),
     updatedAt = Instant.parse(updatedAt),
     avatarUrl = avatarUrl,
+    themeId = GroupThemeId.fromValue(themeId),
 )
 
 fun GroupMemberDto.toDomain(): GroupMember = GroupMember(

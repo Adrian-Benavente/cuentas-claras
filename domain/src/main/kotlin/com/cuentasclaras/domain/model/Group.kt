@@ -11,6 +11,7 @@ data class Group(
     val createdAt: Instant,
     val updatedAt: Instant,
     val avatarUrl: String? = null,
+    val themeId: GroupThemeId = GroupThemeId.FOREST,
 )
 
 @JvmInline

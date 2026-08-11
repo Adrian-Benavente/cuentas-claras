@@ -13,6 +13,7 @@ import com.cuentasclaras.app.data.remote.JoinGroupResponse
 import com.cuentasclaras.domain.model.Group
 import com.cuentasclaras.domain.model.GroupId
 import com.cuentasclaras.domain.model.GroupMember
+import com.cuentasclaras.domain.model.GroupThemeId
 import com.cuentasclaras.domain.model.UserId
 import io.github.jan.supabase.SupabaseClient
 import io.github.jan.supabase.postgrest.from
@@ -153,6 +154,19 @@ class GroupRepository @Inject constructor(
         )
         localCache.getGroup(groupId)?.let { cached ->
             localCache.upsertGroup(cached.copy(avatarUrl = null))
+        }
+    }
+
+    suspend fun setTheme(groupId: GroupId, themeId: GroupThemeId) {
+        client.postgrest.rpc(
+            function = "set_group_theme",
+            parameters = buildJsonObject {
+                put("p_group_id", groupId.value)
+                put("p_theme_id", themeId.value)
+            },
+        )
+        localCache.getGroup(groupId)?.let { cached ->
+            localCache.upsertGroup(cached.copy(themeId = themeId))
         }
     }
 

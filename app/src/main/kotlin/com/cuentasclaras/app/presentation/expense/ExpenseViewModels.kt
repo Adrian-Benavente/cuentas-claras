@@ -17,6 +17,7 @@ import com.cuentasclaras.domain.model.Expense
 import com.cuentasclaras.domain.model.ExpenseId
 import com.cuentasclaras.domain.model.GroupId
 import com.cuentasclaras.domain.model.GroupMember
+import com.cuentasclaras.domain.model.GroupThemeId
 import com.cuentasclaras.domain.model.Money
 import com.cuentasclaras.domain.model.UserId
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -35,6 +36,7 @@ data class ExpenseEditorUiState(
     val date: LocalDate = LocalDate.now(),
     val members: List<GroupMember> = emptyList(),
     val currency: Currency = Currency.ARS,
+    val themeId: GroupThemeId = GroupThemeId.FOREST,
     val closedPeriods: Set<YearMonth> = emptySet(),
     val isLoading: Boolean = false,
     val isSaving: Boolean = false,
@@ -86,6 +88,7 @@ class ExpenseEditorViewModel @Inject constructor(
                     date = existing?.data?.date ?: LocalDate.now(),
                     members = members.data,
                     currency = group.data.currency,
+                    themeId = group.data.themeId,
                     closedPeriods = closedPeriods.data,
                     isLoading = false,
                     existing = existing?.data,
@@ -209,6 +212,7 @@ data class ExpenseDetailUiState(
     val members: List<GroupMember> = emptyList(),
     val canEdit: Boolean = false,
     val isPeriodClosed: Boolean = false,
+    val themeId: GroupThemeId = GroupThemeId.FOREST,
     val fromCache: Boolean = false,
     val errorMessage: String? = null,
     val deleted: Boolean = false,
@@ -239,6 +243,7 @@ class ExpenseDetailViewModel @Inject constructor(
             runCatching {
                 val expense = expenseRepository.getExpense(groupId, expenseId)
                 val members = groupRepository.listMembers(groupId)
+                val group = groupRepository.getGroup(groupId)
                 val closedPeriods = periodRepository.listClosedPeriods(groupId)
                 val currentUser = authRepository.currentUserId()
                 val isOwner = members.data.any {
@@ -251,7 +256,9 @@ class ExpenseDetailViewModel @Inject constructor(
                     members = members.data,
                     canEdit = (currentUser == expense.data.createdBy || isOwner) && !periodClosed,
                     isPeriodClosed = periodClosed,
-                    fromCache = expense.fromCache || members.fromCache || closedPeriods.fromCache,
+                    themeId = group.data.themeId,
+                    fromCache = expense.fromCache || members.fromCache ||
+                        closedPeriods.fromCache || group.fromCache,
                 )
             }.onFailure { error ->
                 if (!keepContent) {

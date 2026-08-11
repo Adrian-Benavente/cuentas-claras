@@ -32,6 +32,7 @@ Profiles of current co-members are readable. After someone is removed, their pro
 | Read period closures | Member | RLS `group_period_closures_select` |
 | Set / clear group avatar | OWNER | Storage `group-avatars` + RPC `set_group_avatar` / `clear_group_avatar` |
 | Read group avatar object | Member | Storage policy `group_avatars_select` (bucket also public for CDN URL) |
+| Set group theme | OWNER | RPC `set_group_theme` (`theme_id` in forest/ocean/sunset/slate/orchid) |
 | Read/update own profile | Self | RLS on `profiles` |
 | Read other profiles | Shared group membership | RLS `profiles_select` |
 

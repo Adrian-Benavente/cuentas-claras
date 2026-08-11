@@ -20,6 +20,7 @@ import com.cuentasclaras.domain.model.Expense
 import com.cuentasclaras.domain.model.Group
 import com.cuentasclaras.domain.model.GroupId
 import com.cuentasclaras.domain.model.GroupMember
+import com.cuentasclaras.domain.model.GroupThemeId
 import com.cuentasclaras.domain.model.MemberRole
 import com.cuentasclaras.domain.model.PeriodStatus
 import com.cuentasclaras.domain.model.PeriodSummary
@@ -251,6 +252,26 @@ class GroupViewModel @Inject constructor(
                 .onFailure { error ->
                     _state.value = UiState.Content(content.copy(isUpdatingAvatar = false))
                     _messages.tryEmit(UserFacingError.from(error, UserFacingError.Context.GroupAvatar))
+                }
+        }
+    }
+
+    fun setTheme(themeId: GroupThemeId) {
+        val content = (_state.value as? UiState.Content)?.data ?: return
+        if (!content.isOwner) {
+            _messages.tryEmit("Solo el administrador puede cambiar el tema del grupo.")
+            return
+        }
+        if (content.group.themeId == themeId) return
+        if (!requireOnline()) return
+        viewModelScope.launch {
+            runCatching { groupRepository.setTheme(groupId, themeId) }
+                .onSuccess {
+                    _messages.tryEmit("Tema actualizado")
+                    refresh(showLoading = false)
+                }
+                .onFailure { error ->
+                    _messages.tryEmit(UserFacingError.from(error, UserFacingError.Context.GroupTheme))
                 }
         }
     }

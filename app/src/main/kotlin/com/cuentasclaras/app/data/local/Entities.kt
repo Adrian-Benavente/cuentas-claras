@@ -15,6 +15,7 @@ data class GroupEntity(
     val createdAt: String,
     val updatedAt: String,
     val avatarUrl: String? = null,
+    val themeId: String = "forest",
 )
 
 @Entity(

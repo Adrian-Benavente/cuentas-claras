@@ -1,7 +1,9 @@
 package com.cuentasclaras.app.presentation.home
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
@@ -9,9 +11,11 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.Logout
 import androidx.compose.material.icons.filled.Add
@@ -29,6 +33,7 @@ import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
@@ -42,6 +47,7 @@ import com.cuentasclaras.app.presentation.components.FullScreenMessage
 import com.cuentasclaras.app.presentation.components.GroupAvatarImage
 import com.cuentasclaras.app.presentation.components.OfflineBanner
 import com.cuentasclaras.app.presentation.components.UiState
+import com.cuentasclaras.app.ui.theme.GroupThemes
 import com.cuentasclaras.domain.model.Group
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -135,15 +141,28 @@ private fun GroupList(
         verticalArrangement = Arrangement.spacedBy(4.dp),
     ) {
         items(groups, key = { it.id.value }) { group ->
+            val palette = GroupThemes.of(group.themeId)
             ListItem(
                 headlineContent = { Text(group.name) },
                 supportingContent = { Text("Moneda: ${group.currency.code}") },
                 leadingContent = {
-                    GroupAvatarImage(
-                        avatarUrl = group.avatarUrl,
-                        groupName = group.name,
-                        size = 40.dp,
-                    )
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        GroupAvatarImage(
+                            avatarUrl = group.avatarUrl,
+                            groupName = group.name,
+                            size = 40.dp,
+                        )
+                        Spacer(Modifier.width(8.dp))
+                        Box(
+                            modifier = Modifier
+                                .size(12.dp)
+                                .clip(CircleShape)
+                                .background(palette.accent())
+                                .semantics {
+                                    contentDescription = "Color del grupo ${palette.label}"
+                                },
+                        )
+                    }
                 },
                 modifier = Modifier
                     .fillMaxWidth()

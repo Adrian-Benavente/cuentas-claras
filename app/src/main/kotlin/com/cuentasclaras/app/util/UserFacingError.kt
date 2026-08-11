@@ -14,6 +14,7 @@ object UserFacingError {
         RemoveMember,
         PeriodClose,
         GroupAvatar,
+        GroupTheme,
         Generic,
     }
 
@@ -39,6 +40,10 @@ object UserFacingError {
         message.contains("only owner can set group avatar") ||
             message.contains("only owner can clear group avatar") ->
             "Solo el administrador puede cambiar la foto del grupo."
+        message.contains("only owner can set group theme") ->
+            "Solo el administrador puede cambiar el tema del grupo."
+        message.contains("invalid theme") ->
+            "Ese tema no es válido."
         message.contains("not authenticated") ||
             message.contains("jwt") ||
             message.contains("session") && message.contains("expired") ->
@@ -88,6 +93,7 @@ object UserFacingError {
         Context.RemoveMember -> "No pudimos eliminar al miembro. Intentá de nuevo."
         Context.PeriodClose -> "No pudimos cambiar el estado del período. Intentá de nuevo."
         Context.GroupAvatar -> "No pudimos actualizar la foto del grupo. Intentá de nuevo."
+        Context.GroupTheme -> "No pudimos actualizar el tema del grupo. Intentá de nuevo."
         Context.Generic -> "Algo salió mal. Intentá de nuevo."
     }
 }

@@ -7,6 +7,7 @@ import com.cuentasclaras.domain.model.ExpenseSplit
 import com.cuentasclaras.domain.model.Group
 import com.cuentasclaras.domain.model.GroupId
 import com.cuentasclaras.domain.model.GroupMember
+import com.cuentasclaras.domain.model.GroupThemeId
 import com.cuentasclaras.domain.model.MemberRole
 import com.cuentasclaras.domain.model.Money
 import com.cuentasclaras.domain.model.SettlementPayment
@@ -176,6 +177,7 @@ private fun Group.toEntity() = GroupEntity(
     createdAt = createdAt.toString(),
     updatedAt = updatedAt.toString(),
     avatarUrl = avatarUrl,
+    themeId = themeId.value,
 )
 
 private fun GroupEntity.toDomain() = Group(
@@ -187,6 +189,7 @@ private fun GroupEntity.toDomain() = Group(
     createdAt = Instant.parse(createdAt),
     updatedAt = Instant.parse(updatedAt),
     avatarUrl = avatarUrl,
+    themeId = GroupThemeId.fromValue(themeId),
 )
 
 private fun GroupMember.toEntity() = MemberEntity(

@@ -8,8 +8,11 @@ import android.net.Uri
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.PickVisualMediaRequest
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
@@ -18,9 +21,11 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.NavigateBefore
@@ -57,6 +62,7 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
@@ -72,11 +78,14 @@ import com.cuentasclaras.app.presentation.components.FullScreenMessage
 import com.cuentasclaras.app.presentation.components.GroupAvatarImage
 import com.cuentasclaras.app.presentation.components.OfflineBanner
 import com.cuentasclaras.app.presentation.components.UiState
+import com.cuentasclaras.app.ui.theme.GroupThemes
+import com.cuentasclaras.app.ui.theme.GroupThemed
 import com.cuentasclaras.app.util.InviteShare
 import com.cuentasclaras.app.util.MoneyFormatter
 import com.cuentasclaras.domain.finance.PeriodGate
 import com.cuentasclaras.domain.model.Expense
 import com.cuentasclaras.domain.model.GroupMember
+import com.cuentasclaras.domain.model.GroupThemeId
 import com.cuentasclaras.domain.model.MemberBalance
 import com.cuentasclaras.domain.model.MemberRole
 import com.cuentasclaras.domain.model.SuggestedTransfer
@@ -131,190 +140,194 @@ fun GroupScreen(
         }
     }
 
-    Scaffold(
-        topBar = {
-            val group = (state as? UiState.Content)?.data?.group
-            TopAppBar(
-                title = {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        if (group != null) {
-                            GroupAvatarImage(
-                                avatarUrl = group.avatarUrl,
-                                groupName = group.name,
-                                size = 32.dp,
-                            )
-                            Spacer(Modifier.width(10.dp))
+    val themeId = (state as? UiState.Content)?.data?.group?.themeId ?: GroupThemeId.FOREST
+    GroupThemed(themeId = themeId) {
+        Scaffold(
+            topBar = {
+                val group = (state as? UiState.Content)?.data?.group
+                TopAppBar(
+                    title = {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            if (group != null) {
+                                GroupAvatarImage(
+                                    avatarUrl = group.avatarUrl,
+                                    groupName = group.name,
+                                    size = 32.dp,
+                                )
+                                Spacer(Modifier.width(10.dp))
+                            }
+                            Text(group?.name ?: "Grupo")
                         }
-                        Text(group?.name ?: "Grupo")
-                    }
-                },
-                navigationIcon = {
-                    IconButton(onClick = onBack) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Volver")
-                    }
-                },
-            )
-        },
-        snackbarHost = { SnackbarHost(snackbarHostState) },
-        floatingActionButton = {
-            val content = (state as? UiState.Content)?.data
-            val canAddExpenses = content != null &&
-                content.members.size >= 2 &&
-                PeriodGate.showCreateExpenseFab(
-                    selectedPeriod = content.period,
-                    selectedPeriodClosed = content.isPeriodClosed,
+                    },
+                    navigationIcon = {
+                        IconButton(onClick = onBack) {
+                            Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Volver")
+                        }
+                    },
                 )
-            if (tabIndex == 1 && canAddExpenses) {
-                FloatingActionButton(
-                    onClick = onAddExpense,
-                    modifier = Modifier.semantics { contentDescription = "Agregar gasto" },
-                ) {
-                    Icon(Icons.Default.Add, contentDescription = null)
+            },
+            snackbarHost = { SnackbarHost(snackbarHostState) },
+            floatingActionButton = {
+                val content = (state as? UiState.Content)?.data
+                val canAddExpenses = content != null &&
+                    content.members.size >= 2 &&
+                    PeriodGate.showCreateExpenseFab(
+                        selectedPeriod = content.period,
+                        selectedPeriodClosed = content.isPeriodClosed,
+                    )
+                if (tabIndex == 1 && canAddExpenses) {
+                    FloatingActionButton(
+                        onClick = onAddExpense,
+                        modifier = Modifier.semantics { contentDescription = "Agregar gasto" },
+                    ) {
+                        Icon(Icons.Default.Add, contentDescription = null)
+                    }
                 }
-            }
-        },
-    ) { padding ->
-        when (val ui = state) {
-            UiState.Loading -> FullScreenLoading(Modifier.padding(padding))
-            is UiState.Error -> FullScreenMessage(
-                title = "No pudimos cargar el grupo",
-                body = ui.message,
-                actionLabel = "Reintentar",
-                onAction = { viewModel.refresh(showLoading = true) },
-                isError = true,
-                modifier = Modifier.padding(padding),
-            )
-            UiState.Empty -> FullScreenMessage(
-                title = "Sin datos",
-                body = "Este grupo todavía no tiene información para mostrar.",
-                modifier = Modifier.padding(padding),
-            )
-            is UiState.Content -> {
-                Column(Modifier.padding(padding).fillMaxSize()) {
-                    OfflineBanner(visible = showOfflineBanner)
-                    PrimaryTabRow(selectedTabIndex = tabIndex) {
-                        tabs.forEachIndexed { index, title ->
-                            Tab(
-                                selected = tabIndex == index,
-                                onClick = { tabIndex = index },
-                                text = { Text(title) },
+            },
+        ) { padding ->
+            when (val ui = state) {
+                UiState.Loading -> FullScreenLoading(Modifier.padding(padding))
+                is UiState.Error -> FullScreenMessage(
+                    title = "No pudimos cargar el grupo",
+                    body = ui.message,
+                    actionLabel = "Reintentar",
+                    onAction = { viewModel.refresh(showLoading = true) },
+                    isError = true,
+                    modifier = Modifier.padding(padding),
+                )
+                UiState.Empty -> FullScreenMessage(
+                    title = "Sin datos",
+                    body = "Este grupo todavía no tiene información para mostrar.",
+                    modifier = Modifier.padding(padding),
+                )
+                is UiState.Content -> {
+                    Column(Modifier.padding(padding).fillMaxSize()) {
+                        OfflineBanner(visible = showOfflineBanner)
+                        PrimaryTabRow(selectedTabIndex = tabIndex) {
+                            tabs.forEachIndexed { index, title ->
+                                Tab(
+                                    selected = tabIndex == index,
+                                    onClick = { tabIndex = index },
+                                    text = { Text(title) },
+                                )
+                            }
+                        }
+                        when (tabIndex) {
+                            0 -> SummaryTab(
+                                content = ui.data,
+                                onPrevious = viewModel::previousPeriod,
+                                onNext = viewModel::nextPeriod,
+                                onMarkSettled = viewModel::markSettled,
+                                onUndoPayment = viewModel::undoPayment,
+                                onRequestClosePeriod = { showClosePeriodConfirm = true },
+                                onRequestReopenPeriod = { showReopenPeriodConfirm = true },
+                                onGoToInvite = { tabIndex = 3 },
+                            )
+                            1 -> ExpensesTab(
+                                content = ui.data,
+                                onOpenExpense = onOpenExpense,
+                                onAddExpense = onAddExpense,
+                                onGoToInvite = { tabIndex = 3 },
+                            )
+                            2 -> MembersTab(
+                                content = ui.data,
+                                onRemoveMember = viewModel::removeMember,
+                            )
+                            3 -> SettingsTab(
+                                content = ui.data,
+                                highlightInvite = focusInvite || ui.data.members.size < 2,
+                                onCodeCopied = { snackbarHostState.showSnackbar("Código copiado") },
+                                onRequestRotateCode = { showRotateConfirm = true },
+                                onPickAvatar = viewModel::setAvatar,
+                                onClearAvatar = viewModel::clearAvatar,
+                                onSetTheme = viewModel::setTheme,
+                                onLogout = onLogout,
                             )
                         }
-                    }
-                    when (tabIndex) {
-                        0 -> SummaryTab(
-                            content = ui.data,
-                            onPrevious = viewModel::previousPeriod,
-                            onNext = viewModel::nextPeriod,
-                            onMarkSettled = viewModel::markSettled,
-                            onUndoPayment = viewModel::undoPayment,
-                            onRequestClosePeriod = { showClosePeriodConfirm = true },
-                            onRequestReopenPeriod = { showReopenPeriodConfirm = true },
-                            onGoToInvite = { tabIndex = 3 },
-                        )
-                        1 -> ExpensesTab(
-                            content = ui.data,
-                            onOpenExpense = onOpenExpense,
-                            onAddExpense = onAddExpense,
-                            onGoToInvite = { tabIndex = 3 },
-                        )
-                        2 -> MembersTab(
-                            content = ui.data,
-                            onRemoveMember = viewModel::removeMember,
-                        )
-                        3 -> SettingsTab(
-                            content = ui.data,
-                            highlightInvite = focusInvite || ui.data.members.size < 2,
-                            onCodeCopied = { snackbarHostState.showSnackbar("Código copiado") },
-                            onRequestRotateCode = { showRotateConfirm = true },
-                            onPickAvatar = viewModel::setAvatar,
-                            onClearAvatar = viewModel::clearAvatar,
-                            onLogout = onLogout,
-                        )
                     }
                 }
             }
         }
-    }
 
-    if (showRotateConfirm) {
-        AlertDialog(
-            onDismissRequest = { showRotateConfirm = false },
-            title = { Text("Nuevo código") },
-            text = {
-                Text(
-                    "Se invalidará el código actual. Quien todavía no se unió va a necesitar el nuevo.",
-                )
-            },
-            confirmButton = {
-                TextButton(
-                    onClick = {
-                        showRotateConfirm = false
-                        viewModel.rotateInviteCode()
-                    },
-                ) {
-                    Text("Generar nuevo")
-                }
-            },
-            dismissButton = {
-                TextButton(onClick = { showRotateConfirm = false }) {
-                    Text("Cancelar")
-                }
-            },
-        )
-    }
+        if (showRotateConfirm) {
+            AlertDialog(
+                onDismissRequest = { showRotateConfirm = false },
+                title = { Text("Nuevo código") },
+                text = {
+                    Text(
+                        "Se invalidará el código actual. Quien todavía no se unió va a necesitar el nuevo.",
+                    )
+                },
+                confirmButton = {
+                    TextButton(
+                        onClick = {
+                            showRotateConfirm = false
+                            viewModel.rotateInviteCode()
+                        },
+                    ) {
+                        Text("Generar nuevo")
+                    }
+                },
+                dismissButton = {
+                    TextButton(onClick = { showRotateConfirm = false }) {
+                        Text("Cancelar")
+                    }
+                },
+            )
+        }
 
-    if (showClosePeriodConfirm) {
-        AlertDialog(
-            onDismissRequest = { showClosePeriodConfirm = false },
-            title = { Text("Cerrar período") },
-            text = {
-                Text(
-                    "No se van a poder cargar, editar ni eliminar gastos de este mes, " +
-                        "ni marcar saldados. Podés reabrirlo después.",
-                )
-            },
-            confirmButton = {
-                TextButton(
-                    onClick = {
-                        showClosePeriodConfirm = false
-                        viewModel.closePeriod()
-                    },
-                ) {
-                    Text("Cerrar período")
-                }
-            },
-            dismissButton = {
-                TextButton(onClick = { showClosePeriodConfirm = false }) {
-                    Text("Cancelar")
-                }
-            },
-        )
-    }
+        if (showClosePeriodConfirm) {
+            AlertDialog(
+                onDismissRequest = { showClosePeriodConfirm = false },
+                title = { Text("Cerrar período") },
+                text = {
+                    Text(
+                        "No se van a poder cargar, editar ni eliminar gastos de este mes, " +
+                            "ni marcar saldados. Podés reabrirlo después.",
+                    )
+                },
+                confirmButton = {
+                    TextButton(
+                        onClick = {
+                            showClosePeriodConfirm = false
+                            viewModel.closePeriod()
+                        },
+                    ) {
+                        Text("Cerrar período")
+                    }
+                },
+                dismissButton = {
+                    TextButton(onClick = { showClosePeriodConfirm = false }) {
+                        Text("Cancelar")
+                    }
+                },
+            )
+        }
 
-    if (showReopenPeriodConfirm) {
-        AlertDialog(
-            onDismissRequest = { showReopenPeriodConfirm = false },
-            title = { Text("Reabrir período") },
-            text = {
-                Text("Se van a poder volver a editar gastos y saldos de este mes.")
-            },
-            confirmButton = {
-                TextButton(
-                    onClick = {
-                        showReopenPeriodConfirm = false
-                        viewModel.reopenPeriod()
-                    },
-                ) {
-                    Text("Reabrir")
-                }
-            },
-            dismissButton = {
-                TextButton(onClick = { showReopenPeriodConfirm = false }) {
-                    Text("Cancelar")
-                }
-            },
-        )
+        if (showReopenPeriodConfirm) {
+            AlertDialog(
+                onDismissRequest = { showReopenPeriodConfirm = false },
+                title = { Text("Reabrir período") },
+                text = {
+                    Text("Se van a poder volver a editar gastos y saldos de este mes.")
+                },
+                confirmButton = {
+                    TextButton(
+                        onClick = {
+                            showReopenPeriodConfirm = false
+                            viewModel.reopenPeriod()
+                        },
+                    ) {
+                        Text("Reabrir")
+                    }
+                },
+                dismissButton = {
+                    TextButton(onClick = { showReopenPeriodConfirm = false }) {
+                        Text("Cancelar")
+                    }
+                },
+            )
+        }
     }
 }
 
@@ -799,6 +812,7 @@ private fun SettingsTab(
     onRequestRotateCode: () -> Unit,
     onPickAvatar: (Uri) -> Unit,
     onClearAvatar: () -> Unit,
+    onSetTheme: (GroupThemeId) -> Unit,
     onLogout: () -> Unit,
 ) {
     val context = LocalContext.current
@@ -857,6 +871,44 @@ private fun SettingsTab(
             }
             Text(
                 "Se recorta al centro en cuadrado y se muestra en círculo.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+
+            Text("Tema del grupo", style = MaterialTheme.typography.titleMedium)
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(12.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                GroupThemes.all.forEach { palette ->
+                    val selected = content.group.themeId == palette.id
+                    Box(
+                        modifier = Modifier
+                            .size(40.dp)
+                            .clip(CircleShape)
+                            .background(palette.accent())
+                            .border(
+                                width = if (selected) 3.dp else 1.dp,
+                                color = if (selected) {
+                                    MaterialTheme.colorScheme.onSurface
+                                } else {
+                                    MaterialTheme.colorScheme.outlineVariant
+                                },
+                                shape = CircleShape,
+                            )
+                            .clickable { onSetTheme(palette.id) }
+                            .semantics {
+                                contentDescription = if (selected) {
+                                    "Tema ${palette.label}, seleccionado"
+                                } else {
+                                    "Tema ${palette.label}"
+                                }
+                            },
+                    )
+                }
+            }
+            Text(
+                GroupThemes.of(content.group.themeId).label,
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )

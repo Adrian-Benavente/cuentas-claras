@@ -49,6 +49,7 @@ import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.cuentasclaras.app.presentation.components.ExpenseDateField
+import com.cuentasclaras.app.ui.theme.GroupThemed
 import com.cuentasclaras.app.util.MoneyFormatter
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -65,36 +66,37 @@ fun ExpenseEditorScreen(
         if (state.done) onDone()
     }
 
-    Scaffold(
-        topBar = {
-            TopAppBar(
-                title = { Text(if (expenseId == null) "Nuevo gasto" else "Editar gasto") },
-                navigationIcon = {
-                    IconButton(onClick = onBack) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Volver")
-                    }
-                },
-            )
-        },
-    ) { padding ->
-        if (state.isLoading) {
-            Column(
-                Modifier.padding(padding).fillMaxSize().padding(24.dp),
-                verticalArrangement = Arrangement.Center,
-            ) {
-                CircularProgressIndicator()
+    GroupThemed(themeId = state.themeId) {
+        Scaffold(
+            topBar = {
+                TopAppBar(
+                    title = { Text(if (expenseId == null) "Nuevo gasto" else "Editar gasto") },
+                    navigationIcon = {
+                        IconButton(onClick = onBack) {
+                            Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Volver")
+                        }
+                    },
+                )
+            },
+        ) { padding ->
+            if (state.isLoading) {
+                Column(
+                    Modifier.padding(padding).fillMaxSize().padding(24.dp),
+                    verticalArrangement = Arrangement.Center,
+                ) {
+                    CircularProgressIndicator()
+                }
+                return@Scaffold
             }
-            return@Scaffold
-        }
 
-        Column(
-            modifier = Modifier
-                .padding(padding)
-                .padding(24.dp)
-                .fillMaxSize()
-                .verticalScroll(rememberScrollState()),
-            verticalArrangement = Arrangement.spacedBy(12.dp),
-        ) {
+            Column(
+                modifier = Modifier
+                    .padding(padding)
+                    .padding(24.dp)
+                    .fillMaxSize()
+                    .verticalScroll(rememberScrollState()),
+                verticalArrangement = Arrangement.spacedBy(12.dp),
+            ) {
             OutlinedTextField(
                 value = state.description,
                 onValueChange = viewModel::onDescriptionChange,
@@ -204,6 +206,7 @@ fun ExpenseEditorScreen(
                     Text("Guardar")
                 }
             }
+            }
         }
     }
 }
@@ -245,114 +248,116 @@ fun ExpenseDetailScreen(
         onFlashConsumed()
     }
 
-    Scaffold(
-        topBar = {
-            TopAppBar(
-                title = { Text("Detalle del gasto") },
-                navigationIcon = {
-                    IconButton(onClick = onBack) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Volver")
+    GroupThemed(themeId = state.themeId) {
+        Scaffold(
+            topBar = {
+                TopAppBar(
+                    title = { Text("Detalle del gasto") },
+                    navigationIcon = {
+                        IconButton(onClick = onBack) {
+                            Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Volver")
+                        }
+                    },
+                )
+            },
+            snackbarHost = { SnackbarHost(snackbarHostState) },
+        ) { padding ->
+            val expense = state.expense
+            if (state.isLoading) {
+                Column(Modifier.padding(padding).padding(24.dp)) { CircularProgressIndicator() }
+                return@Scaffold
+            }
+            if (expense == null) {
+                Column(Modifier.padding(padding).padding(24.dp)) {
+                    Text(state.errorMessage ?: "Gasto no encontrado.")
+                    TextButton(onClick = onBack) { Text("Volver") }
+                }
+                return@Scaffold
+            }
+
+            val payer = state.members.find { it.userId == expense.paidBy }?.displayName ?: "Alguien"
+            val splitUserIds = expense.splits.map { it.userId }.toSet()
+            val memberIds = state.members.map { it.userId }.toSet()
+            val missingMembers = state.members.size > 1 && splitUserIds != memberIds
+            Column(
+                modifier = Modifier.padding(padding).padding(24.dp).fillMaxSize(),
+                verticalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                Text(expense.description, style = MaterialTheme.typography.headlineSmall)
+                Text(MoneyFormatter.format(expense.amount), style = MaterialTheme.typography.headlineMedium)
+                Text("Pagó: $payer")
+                Text("Fecha: ${expense.date}")
+                Spacer(Modifier.height(8.dp))
+                Text("Reparto", style = MaterialTheme.typography.titleMedium)
+                expense.splits.forEach { split ->
+                    val name = state.members.find { it.userId == split.userId }?.displayName
+                        ?: split.userId.value
+                    Text("$name: ${MoneyFormatter.format(split.share)}")
+                }
+                if (missingMembers) {
+                    Text(
+                        "Este gasto no incluye a todos los miembros actuales. " +
+                            "Editá y guardá de nuevo para redistribuirlo en partes iguales.",
+                        color = MaterialTheme.colorScheme.error,
+                        style = MaterialTheme.typography.bodyMedium,
+                    )
+                }
+                if (state.isPeriodClosed) {
+                    Text(
+                        "Este período está cerrado. Reabrilo desde el resumen del grupo para editar o eliminar.",
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        style = MaterialTheme.typography.bodyMedium,
+                    )
+                }
+                if (state.fromCache) {
+                    Text(
+                        "Sin conexión · mostrando datos guardados",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+                state.errorMessage?.let {
+                    Text(it, color = MaterialTheme.colorScheme.error)
+                }
+                Spacer(Modifier.height(16.dp))
+                if (state.canEdit) {
+                    Button(
+                        onClick = onEdit,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .semantics { contentDescription = "Editar gasto" },
+                    ) {
+                        Text("Editar")
                     }
+                    OutlinedButton(
+                        onClick = { showDeleteConfirm = true },
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .semantics { contentDescription = "Eliminar gasto" },
+                    ) {
+                        Text("Eliminar")
+                    }
+                }
+            }
+        }
+
+        if (showDeleteConfirm) {
+            AlertDialog(
+                onDismissRequest = { showDeleteConfirm = false },
+                title = { Text("Eliminar gasto") },
+                text = { Text("¿Seguro que querés eliminar este gasto? Los saldos se recalcularán.") },
+                confirmButton = {
+                    TextButton(
+                        onClick = {
+                            showDeleteConfirm = false
+                            viewModel.delete()
+                        },
+                    ) { Text("Eliminar") }
+                },
+                dismissButton = {
+                    TextButton(onClick = { showDeleteConfirm = false }) { Text("Cancelar") }
                 },
             )
-        },
-        snackbarHost = { SnackbarHost(snackbarHostState) },
-    ) { padding ->
-        val expense = state.expense
-        if (state.isLoading) {
-            Column(Modifier.padding(padding).padding(24.dp)) { CircularProgressIndicator() }
-            return@Scaffold
         }
-        if (expense == null) {
-            Column(Modifier.padding(padding).padding(24.dp)) {
-                Text(state.errorMessage ?: "Gasto no encontrado.")
-                TextButton(onClick = onBack) { Text("Volver") }
-            }
-            return@Scaffold
-        }
-
-        val payer = state.members.find { it.userId == expense.paidBy }?.displayName ?: "Alguien"
-        val splitUserIds = expense.splits.map { it.userId }.toSet()
-        val memberIds = state.members.map { it.userId }.toSet()
-        val missingMembers = state.members.size > 1 && splitUserIds != memberIds
-        Column(
-            modifier = Modifier.padding(padding).padding(24.dp).fillMaxSize(),
-            verticalArrangement = Arrangement.spacedBy(8.dp),
-        ) {
-            Text(expense.description, style = MaterialTheme.typography.headlineSmall)
-            Text(MoneyFormatter.format(expense.amount), style = MaterialTheme.typography.headlineMedium)
-            Text("Pagó: $payer")
-            Text("Fecha: ${expense.date}")
-            Spacer(Modifier.height(8.dp))
-            Text("Reparto", style = MaterialTheme.typography.titleMedium)
-            expense.splits.forEach { split ->
-                val name = state.members.find { it.userId == split.userId }?.displayName
-                    ?: split.userId.value
-                Text("$name: ${MoneyFormatter.format(split.share)}")
-            }
-            if (missingMembers) {
-                Text(
-                    "Este gasto no incluye a todos los miembros actuales. " +
-                        "Editá y guardá de nuevo para redistribuirlo en partes iguales.",
-                    color = MaterialTheme.colorScheme.error,
-                    style = MaterialTheme.typography.bodyMedium,
-                )
-            }
-            if (state.isPeriodClosed) {
-                Text(
-                    "Este período está cerrado. Reabrilo desde el resumen del grupo para editar o eliminar.",
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    style = MaterialTheme.typography.bodyMedium,
-                )
-            }
-            if (state.fromCache) {
-                Text(
-                    "Sin conexión · mostrando datos guardados",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-            }
-            state.errorMessage?.let {
-                Text(it, color = MaterialTheme.colorScheme.error)
-            }
-            Spacer(Modifier.height(16.dp))
-            if (state.canEdit) {
-                Button(
-                    onClick = onEdit,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .semantics { contentDescription = "Editar gasto" },
-                ) {
-                    Text("Editar")
-                }
-                OutlinedButton(
-                    onClick = { showDeleteConfirm = true },
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .semantics { contentDescription = "Eliminar gasto" },
-                ) {
-                    Text("Eliminar")
-                }
-            }
-        }
-    }
-
-    if (showDeleteConfirm) {
-        AlertDialog(
-            onDismissRequest = { showDeleteConfirm = false },
-            title = { Text("Eliminar gasto") },
-            text = { Text("¿Seguro que querés eliminar este gasto? Los saldos se recalcularán.") },
-            confirmButton = {
-                TextButton(
-                    onClick = {
-                        showDeleteConfirm = false
-                        viewModel.delete()
-                    },
-                ) { Text("Eliminar") }
-            },
-            dismissButton = {
-                TextButton(onClick = { showDeleteConfirm = false }) { Text("Cancelar") }
-            },
-        )
     }
 }

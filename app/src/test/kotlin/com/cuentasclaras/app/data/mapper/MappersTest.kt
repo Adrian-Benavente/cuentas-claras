@@ -31,6 +31,23 @@ class MappersTest {
         assertThat(group.currency.code).isEqualTo("ARS")
         assertThat(group.inviteCode).isEqualTo("AB12CD")
         assertThat(group.createdBy.value).isEqualTo("u1")
+        assertThat(group.themeId).isEqualTo(com.cuentasclaras.domain.model.GroupThemeId.FOREST)
+    }
+
+    @Test
+    fun groupDto_mapsThemeId() {
+        val group = GroupDto(
+            id = "g1",
+            name = "Casa",
+            currency = "ARS",
+            inviteCode = "AB12CD",
+            createdBy = "u1",
+            createdAt = "2026-08-11T12:00:00Z",
+            updatedAt = "2026-08-11T13:00:00Z",
+            themeId = "ocean",
+        ).toDomain()
+
+        assertThat(group.themeId).isEqualTo(com.cuentasclaras.domain.model.GroupThemeId.OCEAN)
     }
 
     @Test

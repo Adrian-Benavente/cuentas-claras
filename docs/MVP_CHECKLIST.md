@@ -15,6 +15,8 @@ Usá dos cuentas (email o Google) en emulador/dispositivo.
 - [ ] Usuario A crea un grupo y aterriza en **Configuración** (invitar)
 - [ ] OWNER puede **Agregar/Cambiar foto** del grupo (galería); se ve circular junto al nombre en Home y en la barra del grupo
 - [ ] OWNER puede **Quitar foto**
+- [ ] OWNER puede elegir **Tema del grupo** (5 swatches en Configuración); el color se aplica en pantallas del grupo/gastos
+- [ ] En Home, cada grupo muestra un **swatch** del color de acento junto al avatar
 - [ ] Con un solo miembro: no aparece FAB de gastos; Resumen/Gastos orientan a invitar
 - [ ] Ve el código, **Copiar** muestra snackbar "Código copiado"
 - [ ] **Compartir** abre share sheet con pasos + link `cuentasclaras://join/…`
