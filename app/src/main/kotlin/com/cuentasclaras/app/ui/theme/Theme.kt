@@ -135,6 +135,7 @@ fun GroupThemed(
     val palette = GroupThemes.of(themeId)
     MaterialTheme(
         colorScheme = palette.scheme(darkTheme),
+        typography = CuentasClarasTypography,
         content = content,
     )
 }
