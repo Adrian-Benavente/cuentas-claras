@@ -6,8 +6,10 @@ import androidx.lifecycle.viewModelScope
 import com.cuentasclaras.app.data.auth.AuthRepository
 import com.cuentasclaras.app.data.expense.ExpenseRepository
 import com.cuentasclaras.app.data.group.GroupRepository
+import com.cuentasclaras.app.data.offline.ConnectivityMonitor
 import com.cuentasclaras.app.data.period.PeriodRepository
 import com.cuentasclaras.app.util.MoneyFormatter
+import com.cuentasclaras.app.util.OfflineMessages
 import com.cuentasclaras.app.util.UserFacingError
 import com.cuentasclaras.domain.finance.PeriodGate
 import com.cuentasclaras.domain.model.Currency
@@ -39,6 +41,7 @@ data class ExpenseEditorUiState(
     val errorMessage: String? = null,
     val done: Boolean = false,
     val existing: Expense? = null,
+    val fromCache: Boolean = false,
 ) {
     val isSelectedDateClosed: Boolean
         get() = !PeriodGate.canMutateExpense(date, closedPeriods)
@@ -57,6 +60,7 @@ class ExpenseEditorViewModel @Inject constructor(
     private val groupRepository: GroupRepository,
     private val periodRepository: PeriodRepository,
     private val authRepository: AuthRepository,
+    private val connectivityMonitor: ConnectivityMonitor,
 ) : ViewModel() {
 
     private val groupId = GroupId(checkNotNull(savedStateHandle["groupId"]))
@@ -74,15 +78,21 @@ class ExpenseEditorViewModel @Inject constructor(
                 val currentUser = authRepository.currentUserId()
                 val existing = expenseId?.let { expenseRepository.getExpense(groupId, it) }
                 _state.value = ExpenseEditorUiState(
-                    description = existing?.description.orEmpty(),
-                    amountInput = existing?.let { MoneyFormatter.formatMajorInput(it.amount.amountMinor) }.orEmpty(),
-                    paidBy = existing?.paidBy ?: currentUser ?: members.firstOrNull()?.userId,
-                    date = existing?.date ?: LocalDate.now(),
-                    members = members,
-                    currency = group.currency,
-                    closedPeriods = closedPeriods,
+                    description = existing?.data?.description.orEmpty(),
+                    amountInput = existing?.data?.let {
+                        MoneyFormatter.formatMajorInput(it.amount.amountMinor)
+                    }.orEmpty(),
+                    paidBy = existing?.data?.paidBy ?: currentUser ?: members.data.firstOrNull()?.userId,
+                    date = existing?.data?.date ?: LocalDate.now(),
+                    members = members.data,
+                    currency = group.data.currency,
+                    closedPeriods = closedPeriods.data,
                     isLoading = false,
-                    existing = existing,
+                    existing = existing?.data,
+                    fromCache = group.fromCache ||
+                        members.fromCache ||
+                        closedPeriods.fromCache ||
+                        (existing?.fromCache == true),
                 )
             }.onFailure { error ->
                 _state.value = _state.value.copy(
@@ -150,6 +160,10 @@ class ExpenseEditorViewModel @Inject constructor(
                 )
                 return
             }
+            !connectivityMonitor.currentlyOnline() -> {
+                _state.value = current.copy(errorMessage = OfflineMessages.NEED_CONNECTION)
+                return
+            }
         }
 
         viewModelScope.launch {
@@ -195,6 +209,7 @@ data class ExpenseDetailUiState(
     val members: List<GroupMember> = emptyList(),
     val canEdit: Boolean = false,
     val isPeriodClosed: Boolean = false,
+    val fromCache: Boolean = false,
     val errorMessage: String? = null,
     val deleted: Boolean = false,
 )
@@ -206,6 +221,7 @@ class ExpenseDetailViewModel @Inject constructor(
     private val groupRepository: GroupRepository,
     private val periodRepository: PeriodRepository,
     private val authRepository: AuthRepository,
+    private val connectivityMonitor: ConnectivityMonitor,
 ) : ViewModel() {
 
     private val groupId = GroupId(checkNotNull(savedStateHandle["groupId"]))
@@ -225,16 +241,17 @@ class ExpenseDetailViewModel @Inject constructor(
                 val members = groupRepository.listMembers(groupId)
                 val closedPeriods = periodRepository.listClosedPeriods(groupId)
                 val currentUser = authRepository.currentUserId()
-                val isOwner = members.any {
+                val isOwner = members.data.any {
                     it.userId == currentUser && it.role == com.cuentasclaras.domain.model.MemberRole.OWNER
                 }
-                val periodClosed = !PeriodGate.canMutateExpense(expense.date, closedPeriods)
+                val periodClosed = !PeriodGate.canMutateExpense(expense.data.date, closedPeriods.data)
                 _state.value = ExpenseDetailUiState(
                     isLoading = false,
-                    expense = expense,
-                    members = members,
-                    canEdit = (currentUser == expense.createdBy || isOwner) && !periodClosed,
+                    expense = expense.data,
+                    members = members.data,
+                    canEdit = (currentUser == expense.data.createdBy || isOwner) && !periodClosed,
                     isPeriodClosed = periodClosed,
+                    fromCache = expense.fromCache || members.fromCache || closedPeriods.fromCache,
                 )
             }.onFailure { error ->
                 if (!keepContent) {
@@ -252,6 +269,10 @@ class ExpenseDetailViewModel @Inject constructor(
             _state.value = _state.value.copy(
                 errorMessage = "Este período está cerrado. Reabrilo para hacer cambios.",
             )
+            return
+        }
+        if (!connectivityMonitor.currentlyOnline()) {
+            _state.value = _state.value.copy(errorMessage = OfflineMessages.NEED_CONNECTION)
             return
         }
         viewModelScope.launch {

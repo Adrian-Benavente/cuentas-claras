@@ -3,9 +3,11 @@ package com.cuentasclaras.app.presentation.group
 import androidx.lifecycle.SavedStateHandle
 import com.cuentasclaras.app.MainDispatcherRule
 import com.cuentasclaras.app.data.group.GroupRepository
+import com.cuentasclaras.app.data.offline.ConnectivityMonitor
 import com.cuentasclaras.domain.model.GroupId
 import com.google.common.truth.Truth.assertThat
 import io.mockk.coEvery
+import io.mockk.every
 import io.mockk.mockk
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.test.advanceUntilIdle
@@ -19,9 +21,13 @@ class JoinGroupViewModelTest {
     val mainDispatcherRule = MainDispatcherRule()
 
     private val groupRepository = mockk<GroupRepository>()
+    private val connectivityMonitor = mockk<ConnectivityMonitor> {
+        every { currentlyOnline() } returns true
+    }
     private val viewModel = JoinGroupViewModel(
         savedStateHandle = SavedStateHandle(mapOf("code" to "")),
         groupRepository = groupRepository,
+        connectivityMonitor = connectivityMonitor,
     )
 
     @Test

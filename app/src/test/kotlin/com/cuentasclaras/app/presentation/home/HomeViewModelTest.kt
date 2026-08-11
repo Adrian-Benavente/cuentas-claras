@@ -2,6 +2,8 @@ package com.cuentasclaras.app.presentation.home
 
 import com.cuentasclaras.app.MainDispatcherRule
 import com.cuentasclaras.app.data.group.GroupRepository
+import com.cuentasclaras.app.data.offline.ConnectivityMonitor
+import com.cuentasclaras.app.data.offline.OfflineReadResult
 import com.cuentasclaras.app.presentation.components.UiState
 import com.cuentasclaras.domain.model.Currency
 import com.cuentasclaras.domain.model.Group
@@ -9,8 +11,10 @@ import com.cuentasclaras.domain.model.GroupId
 import com.cuentasclaras.domain.model.UserId
 import com.google.common.truth.Truth.assertThat
 import io.mockk.coEvery
+import io.mockk.every
 import io.mockk.mockk
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.runTest
 import org.junit.Rule
@@ -23,23 +27,28 @@ class HomeViewModelTest {
     val mainDispatcherRule = MainDispatcherRule()
 
     private val groupRepository = mockk<GroupRepository>()
-    private val viewModel = HomeViewModel(groupRepository)
+    private val connectivityMonitor = mockk<ConnectivityMonitor> {
+        every { isOnline } returns MutableStateFlow(true)
+        every { currentlyOnline() } returns true
+    }
+    private val viewModel = HomeViewModel(groupRepository, connectivityMonitor)
 
     @Test
     fun refresh_successWithGroups_setsContent() = runTest {
-        coEvery { groupRepository.listMyGroups() } returns listOf(sampleGroup())
+        coEvery { groupRepository.listMyGroups() } returns OfflineReadResult(listOf(sampleGroup()), false)
 
         viewModel.refresh()
         advanceUntilIdle()
 
         val state = viewModel.state.value
         assertThat(state).isInstanceOf(UiState.Content::class.java)
-        assertThat((state as UiState.Content).data).hasSize(1)
+        assertThat((state as UiState.Content).data.groups).hasSize(1)
+        assertThat(state.data.fromCache).isFalse()
     }
 
     @Test
     fun refresh_emptyList_setsEmpty() = runTest {
-        coEvery { groupRepository.listMyGroups() } returns emptyList()
+        coEvery { groupRepository.listMyGroups() } returns OfflineReadResult(emptyList(), false)
 
         viewModel.refresh()
         advanceUntilIdle()

@@ -110,6 +110,10 @@ dependencies {
     implementation(libs.googleid)
     implementation(libs.play.services.auth)
 
+    implementation(libs.androidx.room.runtime)
+    implementation(libs.androidx.room.ktx)
+    ksp(libs.androidx.room.compiler)
+
     debugImplementation(libs.androidx.compose.ui.tooling)
 
     testImplementation(libs.junit)

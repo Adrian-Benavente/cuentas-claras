@@ -1,6 +1,7 @@
 package com.cuentasclaras.app.data.auth
 
 import com.cuentasclaras.app.data.mapper.toDomain
+import com.cuentasclaras.app.data.local.LocalCache
 import com.cuentasclaras.app.data.remote.ProfileDto
 import com.cuentasclaras.domain.model.User
 import com.cuentasclaras.domain.model.UserId
@@ -26,6 +27,7 @@ sealed interface SessionState {
 @Singleton
 class AuthRepository @Inject constructor(
     private val client: SupabaseClient,
+    private val localCache: LocalCache,
 ) {
     private val _sessionState = MutableStateFlow<SessionState>(SessionState.Loading)
     val sessionState: StateFlow<SessionState> = _sessionState.asStateFlow()
@@ -79,6 +81,7 @@ class AuthRepository @Inject constructor(
         // Mark signed-out first so LoginScreen does not bounce back to Home
         // while the network sign-out is still in flight.
         _sessionState.value = SessionState.SignedOut
+        runCatching { localCache.clearAll() }
         runCatching { client.auth.signOut() }
     }
 

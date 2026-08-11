@@ -1,6 +1,10 @@
 package com.cuentasclaras.app.data.expense
 
+import com.cuentasclaras.app.data.local.LocalCache
 import com.cuentasclaras.app.data.mapper.toDomain
+import com.cuentasclaras.app.data.offline.ConnectivityMonitor
+import com.cuentasclaras.app.data.offline.OfflineRead
+import com.cuentasclaras.app.data.offline.OfflineReadResult
 import com.cuentasclaras.app.data.remote.ExpenseDto
 import com.cuentasclaras.domain.finance.EqualSplitCalculator
 import com.cuentasclaras.domain.model.Expense
@@ -24,27 +28,53 @@ import javax.inject.Singleton
 @Singleton
 class ExpenseRepository @Inject constructor(
     private val client: SupabaseClient,
+    private val localCache: LocalCache,
+    private val connectivityMonitor: ConnectivityMonitor,
 ) {
-    suspend fun listExpenses(groupId: GroupId): List<Expense> {
-        return client.from("expenses")
-            .select(Columns.raw("*, expense_splits(*)")) {
-                filter { eq("group_id", groupId.value) }
-            }
-            .decodeList<ExpenseDto>()
-            .map { it.toDomain() }
-            .sortedByDescending { it.date }
+    suspend fun listExpenses(groupId: GroupId): OfflineReadResult<List<Expense>> {
+        return OfflineRead.networkFirst(
+            isOnline = connectivityMonitor.currentlyOnline(),
+            remote = {
+                client.from("expenses")
+                    .select(Columns.raw("*, expense_splits(*)")) {
+                        filter { eq("group_id", groupId.value) }
+                    }
+                    .decodeList<ExpenseDto>()
+                    .map { it.toDomain() }
+                    .sortedByDescending { it.date }
+            },
+            readCache = {
+                if (localCache.hasExpensesSnapshot(groupId)) localCache.listExpenses(groupId) else null
+            },
+            writeCache = { localCache.replaceExpenses(groupId, it) },
+        )
     }
 
-    suspend fun getExpense(groupId: GroupId, expenseId: ExpenseId): Expense {
-        return client.from("expenses")
-            .select(Columns.raw("*, expense_splits(*)")) {
-                filter {
-                    eq("group_id", groupId.value)
-                    eq("id", expenseId.value)
+    suspend fun getExpense(groupId: GroupId, expenseId: ExpenseId): OfflineReadResult<Expense> {
+        return OfflineRead.networkFirst(
+            isOnline = connectivityMonitor.currentlyOnline(),
+            remote = {
+                client.from("expenses")
+                    .select(Columns.raw("*, expense_splits(*)")) {
+                        filter {
+                            eq("group_id", groupId.value)
+                            eq("id", expenseId.value)
+                        }
+                    }
+                    .decodeSingle<ExpenseDto>()
+                    .toDomain()
+            },
+            readCache = { localCache.getExpense(groupId, expenseId) },
+            writeCache = { expense ->
+                // Keep single expense coherent with list cache when possible.
+                val existing = if (localCache.hasExpensesSnapshot(groupId)) {
+                    localCache.listExpenses(groupId).filterNot { it.id == expense.id } + expense
+                } else {
+                    listOf(expense)
                 }
-            }
-            .decodeSingle<ExpenseDto>()
-            .toDomain()
+                localCache.replaceExpenses(groupId, existing)
+            },
+        )
     }
 
     suspend fun createExpense(
@@ -74,7 +104,6 @@ class ExpenseRepository @Inject constructor(
                 }
             }
         }
-        // createdBy is enforced server-side via auth.uid()
         return client.postgrest.rpc("create_expense", payload).decodeAs<ExpenseDto>().toDomain()
     }
 

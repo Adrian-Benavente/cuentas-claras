@@ -2,6 +2,7 @@ package com.cuentasclaras.app.presentation.home
 
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -34,6 +35,7 @@ import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.cuentasclaras.app.presentation.components.FullScreenLoading
 import com.cuentasclaras.app.presentation.components.FullScreenMessage
+import com.cuentasclaras.app.presentation.components.OfflineBanner
 import com.cuentasclaras.app.presentation.components.UiState
 import com.cuentasclaras.domain.model.Group
 
@@ -47,6 +49,9 @@ fun HomeScreen(
     viewModel: HomeViewModel = hiltViewModel(),
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
+    val isOnline by viewModel.isOnline.collectAsStateWithLifecycle()
+    val showOfflineBanner = !isOnline ||
+        ((state as? UiState.Content)?.data?.fromCache == true)
 
     val lifecycleOwner = LocalLifecycleOwner.current
     DisposableEffect(lifecycleOwner, viewModel) {
@@ -88,40 +93,39 @@ fun HomeScreen(
             }
         },
     ) { padding ->
-        when (val ui = state) {
-            UiState.Loading -> FullScreenLoading(Modifier.padding(padding))
-            UiState.Empty -> FullScreenMessage(
-                title = "Todavía no tenés grupos",
-                body = "Creá uno o unite con un código de invitación.",
-                actionLabel = "Crear grupo",
-                onAction = onCreateGroup,
-                modifier = Modifier.padding(padding),
-            )
-            is UiState.Error -> FullScreenMessage(
-                title = "No pudimos cargar tus grupos",
-                body = ui.message,
-                actionLabel = "Reintentar",
-                onAction = { viewModel.refresh(showLoading = true) },
-                isError = true,
-                modifier = Modifier.padding(padding),
-            )
-            is UiState.Content -> GroupList(
-                modifier = Modifier.padding(padding),
-                groups = ui.data,
-                onOpenGroup = onOpenGroup,
-            )
+        Column(Modifier.padding(padding).fillMaxSize()) {
+            OfflineBanner(visible = showOfflineBanner)
+            when (val ui = state) {
+                UiState.Loading -> FullScreenLoading()
+                UiState.Empty -> FullScreenMessage(
+                    title = "Todavía no tenés grupos",
+                    body = "Creá uno o unite con un código de invitación.",
+                    actionLabel = "Crear grupo",
+                    onAction = onCreateGroup,
+                )
+                is UiState.Error -> FullScreenMessage(
+                    title = "No pudimos cargar tus grupos",
+                    body = ui.message,
+                    actionLabel = "Reintentar",
+                    onAction = { viewModel.refresh(showLoading = true) },
+                    isError = true,
+                )
+                is UiState.Content -> GroupList(
+                    groups = ui.data.groups,
+                    onOpenGroup = onOpenGroup,
+                )
+            }
         }
     }
 }
 
 @Composable
 private fun GroupList(
-    modifier: Modifier,
     groups: List<Group>,
     onOpenGroup: (String) -> Unit,
 ) {
     LazyColumn(
-        modifier = modifier.fillMaxSize(),
+        modifier = Modifier.fillMaxSize(),
         contentPadding = PaddingValues(16.dp),
         verticalArrangement = Arrangement.spacedBy(4.dp),
     ) {

@@ -4,7 +4,9 @@ import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.cuentasclaras.app.data.group.GroupRepository
+import com.cuentasclaras.app.data.offline.ConnectivityMonitor
 import com.cuentasclaras.app.util.InviteShare
+import com.cuentasclaras.app.util.OfflineMessages
 import com.cuentasclaras.app.util.UserFacingError
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -23,6 +25,7 @@ data class CreateGroupUiState(
 @HiltViewModel
 class CreateGroupViewModel @Inject constructor(
     private val groupRepository: GroupRepository,
+    private val connectivityMonitor: ConnectivityMonitor,
 ) : ViewModel() {
     private val _state = MutableStateFlow(CreateGroupUiState())
     val state: StateFlow<CreateGroupUiState> = _state.asStateFlow()
@@ -35,6 +38,10 @@ class CreateGroupViewModel @Inject constructor(
         val name = _state.value.name.trim()
         if (name.isBlank()) {
             _state.value = _state.value.copy(errorMessage = "Ingresá un nombre para el grupo.")
+            return
+        }
+        if (!connectivityMonitor.currentlyOnline()) {
+            _state.value = _state.value.copy(errorMessage = OfflineMessages.NEED_CONNECTION)
             return
         }
         viewModelScope.launch {
@@ -64,6 +71,7 @@ data class JoinGroupUiState(
 class JoinGroupViewModel @Inject constructor(
     savedStateHandle: SavedStateHandle,
     private val groupRepository: GroupRepository,
+    private val connectivityMonitor: ConnectivityMonitor,
 ) : ViewModel() {
     private val _state = MutableStateFlow(
         JoinGroupUiState(code = InviteShare.normalizeCode(savedStateHandle.get<String>("code").orEmpty())),
@@ -91,6 +99,10 @@ class JoinGroupViewModel @Inject constructor(
         val code = InviteShare.normalizeCode(_state.value.code)
         if (code.length < 4) {
             _state.value = _state.value.copy(errorMessage = "Ingresá el código de invitación.")
+            return
+        }
+        if (!connectivityMonitor.currentlyOnline()) {
+            _state.value = _state.value.copy(errorMessage = OfflineMessages.NEED_CONNECTION)
             return
         }
         viewModelScope.launch {

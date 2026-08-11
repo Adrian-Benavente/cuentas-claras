@@ -63,6 +63,7 @@ import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.cuentasclaras.app.presentation.components.FullScreenLoading
 import com.cuentasclaras.app.presentation.components.FullScreenMessage
+import com.cuentasclaras.app.presentation.components.OfflineBanner
 import com.cuentasclaras.app.presentation.components.UiState
 import com.cuentasclaras.app.util.InviteShare
 import com.cuentasclaras.app.util.MoneyFormatter
@@ -90,12 +91,15 @@ fun GroupScreen(
     viewModel: GroupViewModel = hiltViewModel(),
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
+    val isOnline by viewModel.isOnline.collectAsStateWithLifecycle()
     var tabIndex by rememberSaveable { mutableIntStateOf(if (focusInvite) 3 else 0) }
     val tabs = listOf("Resumen", "Gastos", "Miembros", "Configuración")
     val snackbarHostState = remember { SnackbarHostState() }
     var showRotateConfirm by remember { mutableStateOf(false) }
     var showClosePeriodConfirm by remember { mutableStateOf(false) }
     var showReopenPeriodConfirm by remember { mutableStateOf(false) }
+    val showOfflineBanner = !isOnline ||
+        ((state as? UiState.Content)?.data?.fromCache == true)
 
     val lifecycleOwner = LocalLifecycleOwner.current
     DisposableEffect(lifecycleOwner, viewModel) {
@@ -169,6 +173,7 @@ fun GroupScreen(
             )
             is UiState.Content -> {
                 Column(Modifier.padding(padding).fillMaxSize()) {
+                    OfflineBanner(visible = showOfflineBanner)
                     PrimaryTabRow(selectedTabIndex = tabIndex) {
                         tabs.forEachIndexed { index, title ->
                             Tab(

@@ -1,6 +1,10 @@
 package com.cuentasclaras.app.data.settlement
 
+import com.cuentasclaras.app.data.local.LocalCache
 import com.cuentasclaras.app.data.mapper.toDomain
+import com.cuentasclaras.app.data.offline.ConnectivityMonitor
+import com.cuentasclaras.app.data.offline.OfflineRead
+import com.cuentasclaras.app.data.offline.OfflineReadResult
 import com.cuentasclaras.app.data.remote.SettlementPaymentDto
 import com.cuentasclaras.app.data.remote.SettlementPaymentInsertDto
 import com.cuentasclaras.domain.model.GroupId
@@ -17,19 +21,34 @@ import javax.inject.Singleton
 @Singleton
 class SettlementRepository @Inject constructor(
     private val client: SupabaseClient,
+    private val localCache: LocalCache,
+    private val connectivityMonitor: ConnectivityMonitor,
 ) {
-    suspend fun listPayments(groupId: GroupId, period: YearMonth): List<SettlementPayment> {
-        return client.from("settlement_payments")
-            .select {
-                filter {
-                    eq("group_id", groupId.value)
-                    eq("period_year", period.year)
-                    eq("period_month", period.monthValue)
+    suspend fun listPayments(groupId: GroupId, period: YearMonth): OfflineReadResult<List<SettlementPayment>> {
+        return OfflineRead.networkFirst(
+            isOnline = connectivityMonitor.currentlyOnline(),
+            remote = {
+                client.from("settlement_payments")
+                    .select {
+                        filter {
+                            eq("group_id", groupId.value)
+                            eq("period_year", period.year)
+                            eq("period_month", period.monthValue)
+                        }
+                    }
+                    .decodeList<SettlementPaymentDto>()
+                    .map { it.toDomain() }
+                    .sortedBy { it.createdAt }
+            },
+            readCache = {
+                if (localCache.hasPaymentsSnapshot(groupId, period)) {
+                    localCache.listPayments(groupId, period)
+                } else {
+                    null
                 }
-            }
-            .decodeList<SettlementPaymentDto>()
-            .map { it.toDomain() }
-            .sortedBy { it.createdAt }
+            },
+            writeCache = { localCache.replacePayments(groupId, period, it) },
+        )
     }
 
     suspend fun createPayment(

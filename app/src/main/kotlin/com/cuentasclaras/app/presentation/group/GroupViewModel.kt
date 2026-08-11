@@ -6,9 +6,11 @@ import androidx.lifecycle.viewModelScope
 import com.cuentasclaras.app.data.auth.AuthRepository
 import com.cuentasclaras.app.data.expense.ExpenseRepository
 import com.cuentasclaras.app.data.group.GroupRepository
+import com.cuentasclaras.app.data.offline.ConnectivityMonitor
 import com.cuentasclaras.app.data.period.PeriodRepository
 import com.cuentasclaras.app.data.settlement.SettlementRepository
 import com.cuentasclaras.app.presentation.components.UiState
+import com.cuentasclaras.app.util.OfflineMessages
 import com.cuentasclaras.app.util.UserFacingError
 import com.cuentasclaras.domain.finance.PeriodGate
 import com.cuentasclaras.domain.finance.PeriodSummaryCalculator
@@ -44,6 +46,7 @@ data class GroupContent(
     val currentUserId: UserId?,
     /** Period expenses whose equal split was saved with fewer members than the group has now. */
     val expensesMissingMembers: Int = 0,
+    val fromCache: Boolean = false,
 ) {
     val isPeriodClosed: Boolean get() = periodStatus == PeriodStatus.CLOSED
 }
@@ -56,6 +59,7 @@ class GroupViewModel @Inject constructor(
     private val settlementRepository: SettlementRepository,
     private val periodRepository: PeriodRepository,
     private val authRepository: AuthRepository,
+    private val connectivityMonitor: ConnectivityMonitor,
 ) : ViewModel() {
 
     private val groupId = GroupId(checkNotNull(savedStateHandle["groupId"]))
@@ -65,6 +69,8 @@ class GroupViewModel @Inject constructor(
 
     private val _messages = MutableSharedFlow<String>(extraBufferCapacity = 1)
     val messages: SharedFlow<String> = _messages.asSharedFlow()
+
+    val isOnline: StateFlow<Boolean> = connectivityMonitor.isOnline
 
     private var selectedPeriod: YearMonth = YearMonth.now()
 
@@ -98,6 +104,7 @@ class GroupViewModel @Inject constructor(
     }
 
     fun rotateInviteCode() {
+        if (!requireOnline()) return
         viewModelScope.launch {
             runCatching { groupRepository.rotateInviteCode(groupId) }
                 .onSuccess {
@@ -113,6 +120,7 @@ class GroupViewModel @Inject constructor(
     fun closePeriod() {
         val content = (_state.value as? UiState.Content)?.data ?: return
         if (!content.isOwner || content.isPeriodClosed) return
+        if (!requireOnline()) return
         viewModelScope.launch {
             runCatching { periodRepository.closePeriod(groupId, content.period) }
                 .onSuccess {
@@ -128,6 +136,7 @@ class GroupViewModel @Inject constructor(
     fun reopenPeriod() {
         val content = (_state.value as? UiState.Content)?.data ?: return
         if (!content.isOwner || !content.isPeriodClosed) return
+        if (!requireOnline()) return
         viewModelScope.launch {
             runCatching { periodRepository.reopenPeriod(groupId, content.period) }
                 .onSuccess {
@@ -147,6 +156,7 @@ class GroupViewModel @Inject constructor(
             _messages.tryEmit("Este período está cerrado. Reabrilo para hacer cambios.")
             return
         }
+        if (!requireOnline()) return
         viewModelScope.launch {
             runCatching {
                 settlementRepository.createPayment(
@@ -172,6 +182,7 @@ class GroupViewModel @Inject constructor(
             _messages.tryEmit("Este período está cerrado. Reabrilo para hacer cambios.")
             return
         }
+        if (!requireOnline()) return
         viewModelScope.launch {
             runCatching { settlementRepository.deletePayment(paymentId) }
                 .onSuccess {
@@ -185,6 +196,7 @@ class GroupViewModel @Inject constructor(
     }
 
     fun removeMember(userId: UserId) {
+        if (!requireOnline()) return
         viewModelScope.launch {
             runCatching { groupRepository.removeMember(groupId, userId) }
                 .onSuccess {
@@ -197,12 +209,28 @@ class GroupViewModel @Inject constructor(
         }
     }
 
+    private fun requireOnline(): Boolean {
+        if (connectivityMonitor.currentlyOnline()) return true
+        _messages.tryEmit(OfflineMessages.NEED_CONNECTION)
+        return false
+    }
+
     private suspend fun loadContent(): GroupContent {
-        val group = groupRepository.getGroup(groupId)
-        val members = groupRepository.listMembers(groupId)
-        val expenses = expenseRepository.listExpenses(groupId)
-        val payments = settlementRepository.listPayments(groupId, selectedPeriod)
-        val periodClosed = periodRepository.isPeriodClosed(groupId, selectedPeriod)
+        val groupResult = groupRepository.getGroup(groupId)
+        val membersResult = groupRepository.listMembers(groupId)
+        val expensesResult = expenseRepository.listExpenses(groupId)
+        val paymentsResult = settlementRepository.listPayments(groupId, selectedPeriod)
+        val closuresResult = periodRepository.listClosedPeriods(groupId)
+        val group = groupResult.data
+        val members = membersResult.data
+        val expenses = expensesResult.data
+        val payments = paymentsResult.data
+        val closedPeriods = closuresResult.data
+        val fromCache = groupResult.fromCache ||
+            membersResult.fromCache ||
+            expensesResult.fromCache ||
+            paymentsResult.fromCache ||
+            closuresResult.fromCache
         val currentUserId = authRepository.currentUserId()
         val isOwner = members.any {
             it.userId == currentUserId && it.role == MemberRole.OWNER
@@ -228,13 +256,11 @@ class GroupViewModel @Inject constructor(
             expenses = expenses,
             period = selectedPeriod,
             summary = summary,
-            periodStatus = PeriodGate.statusOf(
-                selectedPeriod,
-                if (periodClosed) setOf(selectedPeriod) else emptySet(),
-            ),
+            periodStatus = PeriodGate.statusOf(selectedPeriod, closedPeriods),
             isOwner = isOwner,
             currentUserId = currentUserId,
             expensesMissingMembers = expensesMissingMembers,
+            fromCache = fromCache,
         )
     }
 }

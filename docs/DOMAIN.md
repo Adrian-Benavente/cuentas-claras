@@ -66,6 +66,13 @@ Settlement payments store `period_year` / `period_month` explicitly.
 - Reopening restores those mutations.
 - Balances keep being calculated from live expenses; closing freezes mutations, not a balance snapshot.
 
+## Offline (read cache)
+
+- The app may show previously loaded groups, members, expenses, payments and period closures from a local Room cache when there is no network.
+- Cache is **read-only**: create/edit/delete, settlements, close/reopen, join and invite actions require connectivity.
+- Cached balances are never authoritative; Resumen recomputes from cached expenses via the same domain calculators.
+- Logout clears the local cache.
+
 ## Expenses
 
 - Amount must be `> 0`.

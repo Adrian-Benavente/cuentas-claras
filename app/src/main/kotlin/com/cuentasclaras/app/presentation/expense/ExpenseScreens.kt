@@ -153,6 +153,14 @@ fun ExpenseEditorScreen(
                 onDateChange = viewModel::onDateChange,
             )
 
+            if (state.fromCache) {
+                Text(
+                    "Sin conexión · mostrando datos guardados",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+
             if (state.isMutationBlocked) {
                 Text(
                     "Este período está cerrado. Reabrilo desde el resumen del grupo para guardar cambios.",
@@ -295,6 +303,13 @@ fun ExpenseDetailScreen(
                     "Este período está cerrado. Reabrilo desde el resumen del grupo para editar o eliminar.",
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     style = MaterialTheme.typography.bodyMedium,
+                )
+            }
+            if (state.fromCache) {
+                Text(
+                    "Sin conexión · mostrando datos guardados",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             }
             state.errorMessage?.let {

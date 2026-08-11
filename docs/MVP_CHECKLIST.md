@@ -57,4 +57,11 @@ Usá dos cuentas (email o Google) en emulador/dispositivo.
 
 - [ ] Cerrar sesión desde Home o Configuración del grupo
 
+## Offline (lectura)
+
+- [ ] Con datos ya vistos: modo avión → Home y Grupo muestran banner “Sin conexión · mostrando datos guardados”
+- [ ] Resumen / Gastos del grupo siguen visibles offline
+- [ ] Intentar crear/editar gasto o marcar saldado offline → mensaje de que hace falta conexión
+- [ ] Tras logout, la cache local no reaparece al volver a entrar (hasta sincronizar de nuevo)
+
 Si algo falla, anotá pantalla + mensaje + Logcat (`cuentasclaras` / `supabase`).
