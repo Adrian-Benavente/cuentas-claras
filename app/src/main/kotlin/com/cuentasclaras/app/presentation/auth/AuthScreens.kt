@@ -67,7 +67,7 @@ fun LoginScreen(
     ) {
         Spacer(Modifier.height(32.dp))
         Image(
-            painter = painterResource(R.mipmap.ic_launcher_round),
+            painter = painterResource(R.drawable.ic_app_logo),
             contentDescription = "Ícono de Cuentas Claras",
             modifier = Modifier.size(96.dp),
         )
