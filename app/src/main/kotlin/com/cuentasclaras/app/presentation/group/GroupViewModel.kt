@@ -5,6 +5,7 @@ import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.cuentasclaras.app.data.auth.AuthRepository
+import com.cuentasclaras.app.data.expense.CategoryRepository
 import com.cuentasclaras.app.data.expense.ExpenseRepository
 import com.cuentasclaras.app.data.group.GroupRepository
 import com.cuentasclaras.app.data.offline.ConnectivityMonitor
@@ -16,7 +17,10 @@ import com.cuentasclaras.app.util.OfflineMessages
 import com.cuentasclaras.app.util.UserFacingError
 import com.cuentasclaras.domain.finance.PeriodGate
 import com.cuentasclaras.domain.finance.PeriodSummaryCalculator
+import com.cuentasclaras.domain.model.CategoryIcon
 import com.cuentasclaras.domain.model.Expense
+import com.cuentasclaras.domain.model.ExpenseCategory
+import com.cuentasclaras.domain.model.ExpenseCategoryId
 import com.cuentasclaras.domain.model.Group
 import com.cuentasclaras.domain.model.GroupId
 import com.cuentasclaras.domain.model.GroupMember
@@ -44,6 +48,7 @@ data class GroupContent(
     val group: Group,
     val members: List<GroupMember>,
     val expenses: List<Expense>,
+    val categories: List<ExpenseCategory> = emptyList(),
     val period: YearMonth,
     val summary: PeriodSummary,
     val periodStatus: PeriodStatus,
@@ -62,6 +67,7 @@ class GroupViewModel @Inject constructor(
     savedStateHandle: SavedStateHandle,
     private val groupRepository: GroupRepository,
     private val expenseRepository: ExpenseRepository,
+    private val categoryRepository: CategoryRepository,
     private val settlementRepository: SettlementRepository,
     private val periodRepository: PeriodRepository,
     private val authRepository: AuthRepository,
@@ -281,6 +287,48 @@ class GroupViewModel @Inject constructor(
         }
     }
 
+    fun createCategory(name: String, icon: CategoryIcon) {
+        if (!requireOnline()) return
+        viewModelScope.launch {
+            runCatching { categoryRepository.createCategory(groupId, name, icon) }
+                .onSuccess {
+                    _messages.tryEmit("Categoría creada")
+                    refresh(showLoading = false)
+                }
+                .onFailure { error ->
+                    _messages.tryEmit(UserFacingError.from(error, UserFacingError.Context.Category))
+                }
+        }
+    }
+
+    fun updateCategory(categoryId: ExpenseCategoryId, name: String, icon: CategoryIcon) {
+        if (!requireOnline()) return
+        viewModelScope.launch {
+            runCatching { categoryRepository.updateCategory(categoryId, groupId, name, icon) }
+                .onSuccess {
+                    _messages.tryEmit("Categoría actualizada")
+                    refresh(showLoading = false)
+                }
+                .onFailure { error ->
+                    _messages.tryEmit(UserFacingError.from(error, UserFacingError.Context.Category))
+                }
+        }
+    }
+
+    fun deleteCategory(categoryId: ExpenseCategoryId) {
+        if (!requireOnline()) return
+        viewModelScope.launch {
+            runCatching { categoryRepository.deleteCategory(categoryId, groupId) }
+                .onSuccess {
+                    _messages.tryEmit("Categoría eliminada")
+                    refresh(showLoading = false)
+                }
+                .onFailure { error ->
+                    _messages.tryEmit(UserFacingError.from(error, UserFacingError.Context.Category))
+                }
+        }
+    }
+
     private fun requireOnline(): Boolean {
         if (connectivityMonitor.currentlyOnline()) return true
         _messages.tryEmit(OfflineMessages.NEED_CONNECTION)
@@ -291,16 +339,19 @@ class GroupViewModel @Inject constructor(
         val groupResult = groupRepository.getGroup(groupId)
         val membersResult = groupRepository.listMembers(groupId)
         val expensesResult = expenseRepository.listExpenses(groupId)
+        val categoriesResult = categoryRepository.listCategories(groupId)
         val paymentsResult = settlementRepository.listPayments(groupId, selectedPeriod)
         val closuresResult = periodRepository.listClosedPeriods(groupId)
         val group = groupResult.data
         val members = membersResult.data
         val expenses = expensesResult.data
+        val categories = categoriesResult.data
         val payments = paymentsResult.data
         val closedPeriods = closuresResult.data
         val fromCache = groupResult.fromCache ||
             membersResult.fromCache ||
             expensesResult.fromCache ||
+            categoriesResult.fromCache ||
             paymentsResult.fromCache ||
             closuresResult.fromCache
         val currentUserId = authRepository.currentUserId()
@@ -326,6 +377,7 @@ class GroupViewModel @Inject constructor(
             group = group,
             members = members,
             expenses = expenses,
+            categories = categories,
             period = selectedPeriod,
             summary = summary,
             periodStatus = PeriodGate.statusOf(selectedPeriod, closedPeriods),

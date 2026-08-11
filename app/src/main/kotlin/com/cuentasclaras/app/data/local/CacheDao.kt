@@ -26,10 +26,14 @@ interface CacheDao {
     @Query("DELETE FROM cached_period_closures")
     suspend fun deleteAllClosures()
 
+    @Query("DELETE FROM cached_expense_categories")
+    suspend fun deleteAllCategories()
+
     @Transaction
     suspend fun clearAll() {
         deleteAllSplits()
         deleteAllExpenses()
+        deleteAllCategories()
         deleteAllPayments()
         deleteAllClosures()
         deleteAllMembers()
@@ -81,6 +85,15 @@ interface CacheDao {
 
     @Query("SELECT * FROM cached_expense_splits WHERE expenseId = :expenseId")
     suspend fun listSplits(expenseId: String): List<ExpenseSplitEntity>
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun upsertCategories(categories: List<ExpenseCategoryEntity>)
+
+    @Query("DELETE FROM cached_expense_categories WHERE groupId = :groupId")
+    suspend fun deleteCategoriesForGroup(groupId: String)
+
+    @Query("SELECT * FROM cached_expense_categories WHERE groupId = :groupId ORDER BY name COLLATE NOCASE ASC")
+    suspend fun listCategories(groupId: String): List<ExpenseCategoryEntity>
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun upsertPayments(payments: List<SettlementPaymentEntity>)

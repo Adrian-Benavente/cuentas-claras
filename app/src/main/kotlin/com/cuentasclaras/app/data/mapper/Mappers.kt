@@ -1,13 +1,17 @@
 package com.cuentasclaras.app.data.mapper
 
+import com.cuentasclaras.app.data.remote.ExpenseCategoryDto
 import com.cuentasclaras.app.data.remote.ExpenseDto
 import com.cuentasclaras.app.data.remote.ExpenseSplitDto
 import com.cuentasclaras.app.data.remote.GroupDto
 import com.cuentasclaras.app.data.remote.GroupMemberDto
 import com.cuentasclaras.app.data.remote.ProfileDto
 import com.cuentasclaras.app.data.remote.SettlementPaymentDto
+import com.cuentasclaras.domain.model.CategoryIcon
 import com.cuentasclaras.domain.model.Currency
 import com.cuentasclaras.domain.model.Expense
+import com.cuentasclaras.domain.model.ExpenseCategory
+import com.cuentasclaras.domain.model.ExpenseCategoryId
 import com.cuentasclaras.domain.model.ExpenseId
 import com.cuentasclaras.domain.model.ExpenseSplit
 import com.cuentasclaras.domain.model.Group
@@ -67,8 +71,23 @@ fun ExpenseSplitDto.toDomain(currency: Currency): ExpenseSplit = ExpenseSplit(
     share = Money(shareAmountMinor, currency),
 )
 
+fun ExpenseCategoryDto.toDomain(): ExpenseCategory = ExpenseCategory(
+    id = ExpenseCategoryId(id),
+    groupId = GroupId(groupId),
+    name = name,
+    icon = CategoryIcon.fromValue(iconKey),
+    createdBy = UserId(createdBy),
+    createdAt = Instant.parse(createdAt),
+    updatedAt = Instant.parse(updatedAt),
+)
+
 fun ExpenseDto.toDomain(): Expense {
     val currency = Currency(currency)
+    val resolvedCategoryId = categoryId?.takeIf { it.isNotBlank() }?.let(::ExpenseCategoryId)
+    val resolvedName = categoryName?.takeIf { it.isNotBlank() }
+        ?: categoryEmbed?.name?.takeIf { it.isNotBlank() }
+    val resolvedIconKey = categoryIconKey?.takeIf { it.isNotBlank() }
+        ?: categoryEmbed?.iconKey?.takeIf { it.isNotBlank() }
     return Expense(
         id = ExpenseId(id),
         groupId = GroupId(groupId),
@@ -83,6 +102,17 @@ fun ExpenseDto.toDomain(): Expense {
         installmentSeriesId = installmentSeriesId,
         installmentIndex = installmentIndex,
         installmentCount = installmentCount,
+        categoryId = resolvedCategoryId,
+        categoryName = if (resolvedCategoryId != null) {
+            resolvedName ?: "Categoría"
+        } else {
+            null
+        },
+        categoryIcon = if (resolvedCategoryId != null) {
+            CategoryIcon.fromValue(resolvedIconKey)
+        } else {
+            null
+        },
     )
 }
 

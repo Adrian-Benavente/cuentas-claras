@@ -22,9 +22,12 @@ Profiles of current co-members are readable. After someone is removed, their pro
 | Join group | Authenticated | RPC `join_group_by_code(p_invite_code)` |
 | Remove member | OWNER | RPC `remove_group_member` (MEMBER only; not self) |
 | Rotate invite code | OWNER | RPC `rotate_invite_code` |
-| Create expense | Member | RPC `create_expense` (≥2 members; payer must be member; splits must sum; period open) |
-| Create installment expenses | Member | RPC `create_installment_expenses` (total+N+K; remaining months open; 2≤N≤48; 1≤K≤N) |
-| Update expense | Creator or OWNER | RPC `update_expense` (period open for old and new dates) |
+| Create expense | Member | RPC `create_expense` (≥2 members; category required; payer must be member; splits must sum; period open) |
+| Create installment expenses | Member | RPC `create_installment_expenses` (total+N+K+category; remaining months open; 2≤N≤48; 1≤K≤N) |
+| Update expense | Creator or OWNER | RPC `update_expense` (category required; period open for old and new dates) |
+| Create expense category | Member | RPC `create_expense_category` (`created_by = auth.uid()`; unique name; valid icon) |
+| Update / delete expense category | Creator | RPC `update_expense_category` / `delete_expense_category` (delete fails if in use) |
+| Read expense categories | Member | RLS `expense_categories_select` |
 | Delete expense | Creator or OWNER | RLS `expenses_delete` + period-open trigger |
 | Delete installment series | Creator or OWNER | RPC `delete_installment_series` (fails if any cuota in closed period) |
 | Read settlement payments | Member | RLS `settlement_payments_select` |

@@ -14,6 +14,8 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -27,7 +29,9 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.NavigateBefore
@@ -49,6 +53,7 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.ListItem
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.PrimaryTabRow
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHost
@@ -85,12 +90,17 @@ import com.cuentasclaras.app.presentation.components.FullScreenMessage
 import com.cuentasclaras.app.presentation.components.GroupAvatarImage
 import com.cuentasclaras.app.presentation.components.OfflineBanner
 import com.cuentasclaras.app.presentation.components.UiState
+import com.cuentasclaras.app.ui.CategoryIcons
 import com.cuentasclaras.app.ui.theme.GroupThemes
 import com.cuentasclaras.app.ui.theme.GroupThemed
 import com.cuentasclaras.app.util.InviteShare
 import com.cuentasclaras.app.util.MoneyFormatter
+import com.cuentasclaras.domain.finance.ExpenseLabels
 import com.cuentasclaras.domain.finance.PeriodGate
+import com.cuentasclaras.domain.model.CategoryIcon
 import com.cuentasclaras.domain.model.Expense
+import com.cuentasclaras.domain.model.ExpenseCategory
+import com.cuentasclaras.domain.model.ExpenseCategoryId
 import com.cuentasclaras.domain.model.GroupMember
 import com.cuentasclaras.domain.model.GroupThemeId
 import com.cuentasclaras.domain.model.MemberBalance
@@ -290,6 +300,9 @@ fun GroupScreen(
                                     onPickAvatar = viewModel::setAvatar,
                                     onClearAvatar = viewModel::clearAvatar,
                                     onSetTheme = viewModel::setTheme,
+                                    onCreateCategory = viewModel::createCategory,
+                                    onUpdateCategory = viewModel::updateCategory,
+                                    onDeleteCategory = viewModel::deleteCategory,
                                     onLogout = onLogout,
                                 )
                             }
@@ -850,15 +863,25 @@ private fun ExpenseRow(
     onOpenExpense: (String) -> Unit,
 ) {
     val payer = displayNameFor(expense.paidBy, members)
+    val title = ExpenseLabels.title(expense)
     ListItem(
-        headlineContent = { Text(expense.description) },
+        leadingContent = {
+            expense.categoryIcon?.let { icon ->
+                Icon(
+                    imageVector = CategoryIcons.imageVector(icon),
+                    contentDescription = expense.categoryName,
+                    tint = MaterialTheme.colorScheme.primary,
+                )
+            }
+        },
+        headlineContent = { Text(title) },
         supportingContent = { Text("Pagó $payer · ${expense.date}") },
         trailingContent = { Text(MoneyFormatter.format(expense.amount), fontWeight = FontWeight.SemiBold) },
         modifier = Modifier
             .clickable { onOpenExpense(expense.id.value) }
             .semantics {
                 contentDescription =
-                    "${expense.description}, ${MoneyFormatter.format(expense.amount)}, pagó $payer"
+                    "$title, ${MoneyFormatter.format(expense.amount)}, pagó $payer"
             },
     )
 }
@@ -951,6 +974,7 @@ private fun displayNameFor(
     }
 }
 
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun SettingsTab(
     content: GroupContent,
@@ -960,23 +984,82 @@ private fun SettingsTab(
     onPickAvatar: (Uri) -> Unit,
     onClearAvatar: () -> Unit,
     onSetTheme: (GroupThemeId) -> Unit,
+    onCreateCategory: (String, CategoryIcon) -> Unit,
+    onUpdateCategory: (ExpenseCategoryId, String, CategoryIcon) -> Unit,
+    onDeleteCategory: (ExpenseCategoryId) -> Unit,
     onLogout: () -> Unit,
 ) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
+    var categoryEditor by remember { mutableStateOf<ExpenseCategory?>(null) }
+    var showCreateCategory by remember { mutableStateOf(false) }
+    var categoryToDelete by remember { mutableStateOf<ExpenseCategory?>(null) }
     val photoPicker = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.PickVisualMedia(),
     ) { uri ->
         if (uri != null) onPickAvatar(uri)
     }
 
-    Column(Modifier.padding(24.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .verticalScroll(rememberScrollState())
+            .padding(24.dp),
+        verticalArrangement = Arrangement.spacedBy(12.dp),
+    ) {
         if (highlightInvite) {
             Text(
                 "Invitá a alguien para poder cargar gastos.",
                 style = MaterialTheme.typography.bodyLarge,
                 fontWeight = FontWeight.Medium,
             )
+        }
+
+        Text("Categorías de gastos", style = MaterialTheme.typography.titleMedium)
+        Text(
+            "Se reutilizan al cargar gastos. Solo quien crea una categoría puede editarla o eliminarla.",
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        if (content.categories.isEmpty()) {
+            Text(
+                "Todavía no hay categorías. Creá la primera para empezar a cargar gastos.",
+                style = MaterialTheme.typography.bodyMedium,
+            )
+        } else {
+            content.categories.forEach { category ->
+                val canEdit = category.createdBy == content.currentUserId
+                ListItem(
+                    leadingContent = {
+                        Icon(
+                            imageVector = CategoryIcons.imageVector(category.icon),
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.primary,
+                        )
+                    },
+                    headlineContent = { Text(category.name) },
+                    trailingContent = {
+                        if (canEdit) {
+                            Row {
+                                TextButton(onClick = { categoryEditor = category }) {
+                                    Text("Editar")
+                                }
+                                TextButton(onClick = { categoryToDelete = category }) {
+                                    Text("Eliminar")
+                                }
+                            }
+                        }
+                    },
+                )
+            }
+        }
+        OutlinedButton(
+            onClick = { showCreateCategory = true },
+            modifier = Modifier
+                .fillMaxWidth()
+                .semantics { contentDescription = "Nueva categoría" },
+        ) {
+            Text("Nueva categoría")
         }
 
         Text("Foto del grupo", style = MaterialTheme.typography.titleMedium)
@@ -1116,4 +1199,132 @@ private fun SettingsTab(
         Spacer(Modifier.height(24.dp))
         TextButton(onClick = onLogout) { Text("Cerrar sesión") }
     }
+
+    if (showCreateCategory) {
+        CategoryEditorDialog(
+            title = "Nueva categoría",
+            initialName = "",
+            initialIcon = CategoryIcon.CATEGORY,
+            onDismiss = { showCreateCategory = false },
+            onConfirm = { name, icon ->
+                showCreateCategory = false
+                onCreateCategory(name, icon)
+            },
+        )
+    }
+    categoryEditor?.let { editing ->
+        CategoryEditorDialog(
+            title = "Editar categoría",
+            initialName = editing.name,
+            initialIcon = editing.icon,
+            onDismiss = { categoryEditor = null },
+            onConfirm = { name, icon ->
+                categoryEditor = null
+                onUpdateCategory(editing.id, name, icon)
+            },
+        )
+    }
+    categoryToDelete?.let { pending ->
+        AlertDialog(
+            onDismissRequest = { categoryToDelete = null },
+            title = { Text("Eliminar categoría") },
+            text = {
+                Text(
+                    "¿Eliminar \"${pending.name}\"? Solo se puede si no hay gastos que la usen.",
+                )
+            },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        onDeleteCategory(pending.id)
+                        categoryToDelete = null
+                    },
+                ) {
+                    Text("Eliminar")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { categoryToDelete = null }) {
+                    Text("Cancelar")
+                }
+            },
+        )
+    }
+}
+
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+private fun CategoryEditorDialog(
+    title: String,
+    initialName: String,
+    initialIcon: CategoryIcon,
+    onDismiss: () -> Unit,
+    onConfirm: (String, CategoryIcon) -> Unit,
+) {
+    var name by remember(initialName) { mutableStateOf(initialName) }
+    var icon by remember(initialIcon) { mutableStateOf(initialIcon) }
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(title) },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                OutlinedTextField(
+                    value = name,
+                    onValueChange = { name = it.take(40) },
+                    label = { Text("Nombre") },
+                    singleLine = true,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .semantics { contentDescription = "Nombre de categoría" },
+                )
+                Text("Ícono", style = MaterialTheme.typography.labelLarge)
+                FlowRow(
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalArrangement = Arrangement.spacedBy(8.dp),
+                    modifier = Modifier.fillMaxWidth(),
+                ) {
+                    CategoryIcon.entries.forEach { option ->
+                        val selected = option == icon
+                        Box(
+                            contentAlignment = Alignment.Center,
+                            modifier = Modifier
+                                .size(44.dp)
+                                .clip(CircleShape)
+                                .background(
+                                    if (selected) {
+                                        MaterialTheme.colorScheme.primaryContainer
+                                    } else {
+                                        MaterialTheme.colorScheme.surfaceVariant
+                                    },
+                                )
+                                .border(
+                                    width = if (selected) 2.dp else 0.dp,
+                                    color = MaterialTheme.colorScheme.primary,
+                                    shape = CircleShape,
+                                )
+                                .clickable { icon = option }
+                                .semantics { contentDescription = "Ícono ${option.value}" },
+                        ) {
+                            Icon(
+                                imageVector = CategoryIcons.imageVector(option),
+                                contentDescription = null,
+                                tint = MaterialTheme.colorScheme.onSurface,
+                            )
+                        }
+                    }
+                }
+            }
+        },
+        confirmButton = {
+            TextButton(
+                onClick = { onConfirm(name.trim(), icon) },
+                enabled = name.trim().isNotEmpty(),
+            ) {
+                Text("Guardar")
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) { Text("Cancelar") }
+        },
+    )
 }

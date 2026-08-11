@@ -1,7 +1,10 @@
 package com.cuentasclaras.app.data.local
 
+import com.cuentasclaras.domain.model.CategoryIcon
 import com.cuentasclaras.domain.model.Currency
 import com.cuentasclaras.domain.model.Expense
+import com.cuentasclaras.domain.model.ExpenseCategory
+import com.cuentasclaras.domain.model.ExpenseCategoryId
 import com.cuentasclaras.domain.model.ExpenseId
 import com.cuentasclaras.domain.model.ExpenseSplit
 import com.cuentasclaras.domain.model.Group
@@ -96,6 +99,20 @@ class LocalCache @Inject constructor(
         return entity.toDomain(dao.listSplits(entity.id))
     }
 
+    suspend fun replaceCategories(groupId: GroupId, categories: List<ExpenseCategory>) {
+        dao.deleteCategoriesForGroup(groupId.value)
+        if (categories.isNotEmpty()) {
+            dao.upsertCategories(categories.map { it.toEntity() })
+        }
+        dao.upsertFlag(CacheFlagEntity(categoriesFlag(groupId), true))
+    }
+
+    suspend fun hasCategoriesSnapshot(groupId: GroupId): Boolean =
+        dao.getFlag(categoriesFlag(groupId)) == true
+
+    suspend fun listCategories(groupId: GroupId): List<ExpenseCategory> =
+        dao.listCategories(groupId.value).map { it.toDomain() }
+
     suspend fun replacePayments(groupId: GroupId, period: YearMonth, payments: List<SettlementPayment>) {
         dao.deletePaymentsForPeriod(groupId.value, period.year, period.monthValue)
         if (payments.isNotEmpty()) {
@@ -162,6 +179,7 @@ class LocalCache @Inject constructor(
 
         fun membersFlag(groupId: GroupId) = "members:${groupId.value}"
         fun expensesFlag(groupId: GroupId) = "expenses:${groupId.value}"
+        fun categoriesFlag(groupId: GroupId) = "categories:${groupId.value}"
         fun paymentsFlag(groupId: GroupId, period: YearMonth) =
             "payments:${groupId.value}:${period.year}-${period.monthValue}"
         fun closuresFlag(groupId: GroupId) = "closures:${groupId.value}"
@@ -225,10 +243,14 @@ private fun Expense.toEntity() = ExpenseEntity(
     installmentSeriesId = installmentSeriesId,
     installmentIndex = installmentIndex,
     installmentCount = installmentCount,
+    categoryId = categoryId?.value,
+    categoryName = categoryName,
+    categoryIconKey = categoryIcon?.value,
 )
 
 private fun ExpenseEntity.toDomain(splits: List<ExpenseSplitEntity>): Expense {
     val currency = Currency(currency)
+    val resolvedCategoryId = categoryId?.takeIf { it.isNotBlank() }?.let(::ExpenseCategoryId)
     return Expense(
         id = ExpenseId(id),
         groupId = GroupId(groupId),
@@ -253,8 +275,39 @@ private fun ExpenseEntity.toDomain(splits: List<ExpenseSplitEntity>): Expense {
         installmentSeriesId = installmentSeriesId,
         installmentIndex = installmentIndex,
         installmentCount = installmentCount,
+        categoryId = resolvedCategoryId,
+        categoryName = if (resolvedCategoryId != null) {
+            categoryName?.takeIf { it.isNotBlank() } ?: "Categoría"
+        } else {
+            null
+        },
+        categoryIcon = if (resolvedCategoryId != null) {
+            CategoryIcon.fromValue(categoryIconKey)
+        } else {
+            null
+        },
     )
 }
+
+private fun ExpenseCategory.toEntity() = ExpenseCategoryEntity(
+    id = id.value,
+    groupId = groupId.value,
+    name = name,
+    iconKey = icon.value,
+    createdBy = createdBy.value,
+    createdAt = createdAt.toString(),
+    updatedAt = updatedAt.toString(),
+)
+
+private fun ExpenseCategoryEntity.toDomain() = ExpenseCategory(
+    id = ExpenseCategoryId(id),
+    groupId = GroupId(groupId),
+    name = name,
+    icon = CategoryIcon.fromValue(iconKey),
+    createdBy = UserId(createdBy),
+    createdAt = Instant.parse(createdAt),
+    updatedAt = Instant.parse(updatedAt),
+)
 
 private fun SettlementPayment.toEntity() = SettlementPaymentEntity(
     id = id.value,

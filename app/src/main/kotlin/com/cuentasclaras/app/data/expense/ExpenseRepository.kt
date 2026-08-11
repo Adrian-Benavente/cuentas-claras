@@ -8,6 +8,7 @@ import com.cuentasclaras.app.data.offline.OfflineReadResult
 import com.cuentasclaras.app.data.remote.ExpenseDto
 import com.cuentasclaras.domain.finance.EqualSplitCalculator
 import com.cuentasclaras.domain.model.Expense
+import com.cuentasclaras.domain.model.ExpenseCategoryId
 import com.cuentasclaras.domain.model.ExpenseId
 import com.cuentasclaras.domain.model.GroupId
 import com.cuentasclaras.domain.model.Money
@@ -37,7 +38,7 @@ class ExpenseRepository @Inject constructor(
             isOnline = connectivityMonitor.currentlyOnline(),
             remote = {
                 client.from("expenses")
-                    .select(Columns.raw("*, expense_splits(*)")) {
+                    .select(Columns.raw("*, expense_splits(*), expense_categories(name, icon_key)")) {
                         filter { eq("group_id", groupId.value) }
                     }
                     .decodeList<ExpenseDto>()
@@ -56,7 +57,7 @@ class ExpenseRepository @Inject constructor(
             isOnline = connectivityMonitor.currentlyOnline(),
             remote = {
                 client.from("expenses")
-                    .select(Columns.raw("*, expense_splits(*)")) {
+                    .select(Columns.raw("*, expense_splits(*), expense_categories(name, icon_key)")) {
                         filter {
                             eq("group_id", groupId.value)
                             eq("id", expenseId.value)
@@ -86,6 +87,7 @@ class ExpenseRepository @Inject constructor(
         date: LocalDate,
         createdBy: UserId,
         participantIds: List<UserId>,
+        categoryId: ExpenseCategoryId,
     ): Expense {
         val splits = EqualSplitCalculator.split(amount, participantIds)
         val payload = buildJsonObject {
@@ -95,6 +97,7 @@ class ExpenseRepository @Inject constructor(
             put("p_currency", amount.currency.code)
             put("p_paid_by", paidBy.value)
             put("p_expense_date", date.toString())
+            put("p_category_id", categoryId.value)
             putJsonArray("p_splits") {
                 splits.forEach { split ->
                     addJsonObject {
@@ -117,6 +120,7 @@ class ExpenseRepository @Inject constructor(
         installmentCount: Int,
         startIndex: Int,
         participantIds: List<UserId>,
+        categoryId: ExpenseCategoryId,
     ): List<Expense> {
         val payload = buildJsonObject {
             put("p_group_id", groupId.value)
@@ -127,6 +131,7 @@ class ExpenseRepository @Inject constructor(
             put("p_start_date", startDate.toString())
             put("p_installment_count", installmentCount)
             put("p_start_index", startIndex)
+            put("p_category_id", categoryId.value)
             putJsonArray("p_participant_ids") {
                 participantIds.forEach { add(it.value) }
             }
@@ -150,6 +155,7 @@ class ExpenseRepository @Inject constructor(
         paidBy: UserId,
         date: LocalDate,
         participantIds: List<UserId>,
+        categoryId: ExpenseCategoryId,
     ): Expense {
         val splits = EqualSplitCalculator.split(amount, participantIds)
         val payload = buildJsonObject {
@@ -159,6 +165,7 @@ class ExpenseRepository @Inject constructor(
             put("p_currency", amount.currency.code)
             put("p_paid_by", paidBy.value)
             put("p_expense_date", date.toString())
+            put("p_category_id", categoryId.value)
             putJsonArray("p_splits") {
                 splits.forEach { split ->
                     addJsonObject {

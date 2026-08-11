@@ -15,6 +15,7 @@ object UserFacingError {
         PeriodClose,
         GroupAvatar,
         GroupTheme,
+        Category,
         Generic,
     }
 
@@ -55,6 +56,21 @@ object UserFacingError {
             "Solo el administrador puede cambiar el tema del grupo."
         message.contains("invalid theme") ->
             "Ese tema no es válido."
+        message.contains("category is required") ->
+            "Elegí una categoría para el gasto."
+        message.contains("category not found") ->
+            "Esa categoría ya no existe. Elegí otra."
+        message.contains("category name already exists") ->
+            "Ya hay una categoría con ese nombre en el grupo."
+        message.contains("invalid category name") ->
+            "Ingresá un nombre de categoría de hasta 40 caracteres."
+        message.contains("invalid category icon") ->
+            "Elegí un ícono válido para la categoría."
+        message.contains("only creator can edit category") ||
+            message.contains("only creator can delete category") ->
+            "Solo quien creó la categoría puede modificarla o eliminarla."
+        message.contains("category is in use") ->
+            "No se puede eliminar: hay gastos que usan esta categoría."
         message.contains("not authenticated") ||
             message.contains("jwt") ||
             message.contains("session") && message.contains("expired") ->
@@ -105,6 +121,7 @@ object UserFacingError {
         Context.PeriodClose -> "No pudimos cambiar el estado del período. Intentá de nuevo."
         Context.GroupAvatar -> "No pudimos actualizar la foto del grupo. Intentá de nuevo."
         Context.GroupTheme -> "No pudimos actualizar el tema del grupo. Intentá de nuevo."
+        Context.Category -> "No pudimos guardar la categoría. Intentá de nuevo."
         Context.Generic -> "Algo salió mal. Intentá de nuevo."
     }
 }

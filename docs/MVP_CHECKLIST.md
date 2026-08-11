@@ -30,7 +30,10 @@ Usá dos cuentas (email o Google) en emulador/dispositivo.
 ## Gastos
 
 - [ ] Flujo feliz: crear grupo → invitar → unirse → primer gasto
-- [ ] Agregar gasto (concepto, monto, quién pagó, fecha con date picker)
+- [ ] Crear categoría en Configuración (nombre + ícono) y verla en la lista
+- [ ] Solo el autor puede editar/eliminar su categoría; delete falla si está en uso
+- [ ] Agregar gasto (categoría, nota opcional, monto, quién pagó, fecha con date picker)
+- [ ] Lista de gastos muestra ícono de categoría y título `Categoría · nota`
 - [ ] Al guardar aparece snackbar "Gasto guardado"
 - [ ] El gasto figura en Gastos del mes actual
 - [ ] Resumen actualiza total / pagó / le corresponde / saldo

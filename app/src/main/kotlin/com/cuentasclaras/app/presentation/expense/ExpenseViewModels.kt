@@ -4,6 +4,7 @@ import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.cuentasclaras.app.data.auth.AuthRepository
+import com.cuentasclaras.app.data.expense.CategoryRepository
 import com.cuentasclaras.app.data.expense.ExpenseRepository
 import com.cuentasclaras.app.data.group.GroupRepository
 import com.cuentasclaras.app.data.offline.ConnectivityMonitor
@@ -15,6 +16,8 @@ import com.cuentasclaras.domain.finance.InstallmentPlanner
 import com.cuentasclaras.domain.finance.PeriodGate
 import com.cuentasclaras.domain.model.Currency
 import com.cuentasclaras.domain.model.Expense
+import com.cuentasclaras.domain.model.ExpenseCategory
+import com.cuentasclaras.domain.model.ExpenseCategoryId
 import com.cuentasclaras.domain.model.ExpenseId
 import com.cuentasclaras.domain.model.GroupId
 import com.cuentasclaras.domain.model.GroupMember
@@ -38,6 +41,8 @@ data class ExpenseEditorUiState(
     val paidBy: UserId? = null,
     val date: LocalDate = LocalDate.now(),
     val members: List<GroupMember> = emptyList(),
+    val categories: List<ExpenseCategory> = emptyList(),
+    val selectedCategoryId: ExpenseCategoryId? = null,
     val currency: Currency = Currency.ARS,
     val themeId: GroupThemeId = GroupThemeId.FOREST,
     val closedPeriods: Set<YearMonth> = emptySet(),
@@ -51,6 +56,9 @@ data class ExpenseEditorUiState(
     val existing: Expense? = null,
     val fromCache: Boolean = false,
 ) {
+    val selectedCategory: ExpenseCategory?
+        get() = categories.find { it.id == selectedCategoryId }
+
     val isSelectedDateClosed: Boolean
         get() = !PeriodGate.canMutateExpense(date, closedPeriods)
 
@@ -113,6 +121,7 @@ data class ExpenseEditorUiState(
 class ExpenseEditorViewModel @Inject constructor(
     savedStateHandle: SavedStateHandle,
     private val expenseRepository: ExpenseRepository,
+    private val categoryRepository: CategoryRepository,
     private val groupRepository: GroupRepository,
     private val periodRepository: PeriodRepository,
     private val authRepository: AuthRepository,
@@ -130,9 +139,13 @@ class ExpenseEditorViewModel @Inject constructor(
             runCatching {
                 val group = groupRepository.getGroup(groupId)
                 val members = groupRepository.listMembers(groupId)
+                val categories = categoryRepository.listCategories(groupId)
                 val closedPeriods = periodRepository.listClosedPeriods(groupId)
                 val currentUser = authRepository.currentUserId()
                 val existing = expenseId?.let { expenseRepository.getExpense(groupId, it) }
+                val existingCategoryId = existing?.data?.categoryId
+                val defaultCategoryId = existingCategoryId
+                    ?: categories.data.firstOrNull()?.id
                 _state.value = ExpenseEditorUiState(
                     description = existing?.data?.description.orEmpty(),
                     amountInput = existing?.data?.let {
@@ -141,6 +154,8 @@ class ExpenseEditorViewModel @Inject constructor(
                     paidBy = existing?.data?.paidBy ?: currentUser ?: members.data.firstOrNull()?.userId,
                     date = existing?.data?.date ?: LocalDate.now(),
                     members = members.data,
+                    categories = categories.data,
+                    selectedCategoryId = defaultCategoryId,
                     currency = group.data.currency,
                     themeId = group.data.themeId,
                     closedPeriods = closedPeriods.data,
@@ -148,6 +163,7 @@ class ExpenseEditorViewModel @Inject constructor(
                     existing = existing?.data,
                     fromCache = group.fromCache ||
                         members.fromCache ||
+                        categories.fromCache ||
                         closedPeriods.fromCache ||
                         (existing?.fromCache == true),
                 )
@@ -162,6 +178,10 @@ class ExpenseEditorViewModel @Inject constructor(
 
     fun onDescriptionChange(value: String) {
         _state.value = _state.value.copy(description = value, errorMessage = null)
+    }
+
+    fun onCategoryChange(categoryId: ExpenseCategoryId) {
+        _state.value = _state.value.copy(selectedCategoryId = categoryId, errorMessage = null)
     }
 
     fun onAmountChange(value: String) {
@@ -199,10 +219,17 @@ class ExpenseEditorViewModel @Inject constructor(
         val createdBy = authRepository.currentUserId()
         val installmentCount = current.parsedInstallmentCount
         val installmentStartIndex = current.parsedInstallmentStartIndex
+        val categoryId = current.selectedCategoryId
 
         when {
-            description.isBlank() -> {
-                _state.value = current.copy(errorMessage = "Ingresá el concepto del gasto.")
+            current.categories.isEmpty() -> {
+                _state.value = current.copy(
+                    errorMessage = "Creá al menos una categoría en Configuración antes de cargar un gasto.",
+                )
+                return
+            }
+            categoryId == null -> {
+                _state.value = current.copy(errorMessage = "Elegí una categoría.")
                 return
             }
             amountMinor == null || amountMinor <= 0L -> {
@@ -277,6 +304,7 @@ class ExpenseEditorViewModel @Inject constructor(
                         installmentCount = installmentCount!!,
                         startIndex = installmentStartIndex!!,
                         participantIds = participants,
+                        categoryId = categoryId!!,
                     )
                 } else if (expenseId == null) {
                     expenseRepository.createExpense(
@@ -287,6 +315,7 @@ class ExpenseEditorViewModel @Inject constructor(
                         date = current.date,
                         createdBy = createdBy!!,
                         participantIds = participants,
+                        categoryId = categoryId!!,
                     )
                 } else {
                     expenseRepository.updateExpense(
@@ -296,6 +325,7 @@ class ExpenseEditorViewModel @Inject constructor(
                         paidBy = paidBy!!,
                         date = current.date,
                         participantIds = participants,
+                        categoryId = categoryId!!,
                     )
                 }
             }.onSuccess {

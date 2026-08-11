@@ -77,18 +77,27 @@ Settlement payments store `period_year` / `period_month` explicitly.
 
 - Amount must be `> 0`.
 - **Creating** a new expense requires the group to have **at least 2 members** (UI + `create_expense` RPC).
+- New expenses require a **group category** + optional note (`description`); display title is `Category` or `Category · note`.
+- Legacy expenses without `category_id` keep `description` as the full title (no icon).
 - MVP: equal split among **members present when the expense is saved**.
 - Splits are persisted on `expense_splits` and are **not** auto-updated when someone joins later.
   Legacy expenses created while alone stay 100% on that member until edited and saved again
   (`update_expense` still allows re-splitting among current members).
 - Edit/delete recalculates balances from source expenses (no cached authoritative balances).
 
+### Expense categories
+
+- Per **group**; any member can create via `create_expense_category`.
+- Edit/delete only by `created_by` (`update_expense_category` / `delete_expense_category`).
+- Unique name per group (case-insensitive); curated `icon_key` whitelist.
+- Delete fails if any expense references the category (`ON DELETE RESTRICT` + RPC check).
+
 ### Installments (cuotas)
 
 - Create with **total** original amount + **N** cuotas (`2 ≤ N ≤ 48`) and start index **K** (`1 ≤ K ≤ N`) via `create_installment_expenses`.
 - Materializes remaining cuotas `K/N` … `N/N` from the chosen date (date of cuota K); does not invent past cuotas `1..K−1`.
 - Total is split across the full N plan with the same remainder rule as equal split (`base = total/N`, first `total%N` get +1); only K..N rows are inserted.
-- Each cuota is a normal expense in its month (description ends with `(k/N)`), linked by `installment_series_id`.
+- Each cuota is a normal expense in its month with `category_id`, optional note, and installment fields; UI title appends `(k/N)`.
 - Dates keep the start day-of-month, clamped to each month's length.
 - If any target month is **CLOSED**, the whole create fails.
 - Deleting the series fails if any cuota sits in a closed period; otherwise deletes all cuotas.

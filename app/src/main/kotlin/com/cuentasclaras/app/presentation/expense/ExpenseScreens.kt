@@ -52,8 +52,10 @@ import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.cuentasclaras.app.presentation.components.ExpenseDateField
+import com.cuentasclaras.app.ui.CategoryIcons
 import com.cuentasclaras.app.ui.theme.GroupThemed
 import com.cuentasclaras.app.util.MoneyFormatter
+import com.cuentasclaras.domain.finance.ExpenseLabels
 import com.cuentasclaras.domain.finance.InstallmentPlanner
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -101,14 +103,70 @@ fun ExpenseEditorScreen(
                     .verticalScroll(rememberScrollState()),
                 verticalArrangement = Arrangement.spacedBy(12.dp),
             ) {
+            var categoryExpanded by remember { mutableStateOf(false) }
+            val selectedCategory = state.selectedCategory
+            ExposedDropdownMenuBox(
+                expanded = categoryExpanded,
+                onExpandedChange = { categoryExpanded = it },
+            ) {
+                OutlinedTextField(
+                    value = selectedCategory?.name ?: "Elegí una categoría",
+                    onValueChange = {},
+                    readOnly = true,
+                    label = { Text("Categoría") },
+                    leadingIcon = selectedCategory?.let { category ->
+                        {
+                            Icon(
+                                imageVector = CategoryIcons.imageVector(category.icon),
+                                contentDescription = null,
+                            )
+                        }
+                    },
+                    trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = categoryExpanded) },
+                    modifier = Modifier
+                        .menuAnchor(MenuAnchorType.PrimaryNotEditable)
+                        .fillMaxWidth()
+                        .semantics { contentDescription = "Categoría del gasto" },
+                )
+                ExposedDropdownMenu(
+                    expanded = categoryExpanded,
+                    onDismissRequest = { categoryExpanded = false },
+                ) {
+                    if (state.categories.isEmpty()) {
+                        DropdownMenuItem(
+                            text = { Text("No hay categorías. Creálas en Configuración.") },
+                            onClick = { categoryExpanded = false },
+                        )
+                    } else {
+                        state.categories.forEach { category ->
+                            DropdownMenuItem(
+                                text = { Text(category.name) },
+                                leadingIcon = {
+                                    Icon(
+                                        imageVector = CategoryIcons.imageVector(category.icon),
+                                        contentDescription = null,
+                                    )
+                                },
+                                onClick = {
+                                    viewModel.onCategoryChange(category.id)
+                                    categoryExpanded = false
+                                },
+                            )
+                        }
+                    }
+                }
+            }
             OutlinedTextField(
                 value = state.description,
                 onValueChange = viewModel::onDescriptionChange,
-                label = { Text("Concepto") },
+                label = { Text("Nota (opcional)") },
                 singleLine = true,
+                supportingText = {
+                    Text("Ej.: factura marzo. Se muestra junto al nombre de la categoría.")
+                },
                 modifier = Modifier
                     .fillMaxWidth()
-                    .semantics { contentDescription = "Concepto del gasto" },
+                    .semantics { contentDescription = "Nota del gasto" },
             )
             OutlinedTextField(
                 value = state.amountInput,
@@ -358,7 +416,22 @@ fun ExpenseDetailScreen(
                 modifier = Modifier.padding(padding).padding(24.dp).fillMaxSize(),
                 verticalArrangement = Arrangement.spacedBy(8.dp),
             ) {
-                Text(expense.description, style = MaterialTheme.typography.headlineSmall)
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(12.dp),
+                ) {
+                    expense.categoryIcon?.let { icon ->
+                        Icon(
+                            imageVector = CategoryIcons.imageVector(icon),
+                            contentDescription = expense.categoryName,
+                            tint = MaterialTheme.colorScheme.primary,
+                        )
+                    }
+                    Text(
+                        ExpenseLabels.title(expense),
+                        style = MaterialTheme.typography.headlineSmall,
+                    )
+                }
                 Text(MoneyFormatter.format(expense.amount), style = MaterialTheme.typography.headlineMedium)
                 if (expense.isInstallment) {
                     Text(

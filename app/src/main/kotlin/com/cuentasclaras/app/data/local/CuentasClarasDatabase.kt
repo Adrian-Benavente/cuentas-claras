@@ -9,11 +9,12 @@ import androidx.room.RoomDatabase
         MemberEntity::class,
         ExpenseEntity::class,
         ExpenseSplitEntity::class,
+        ExpenseCategoryEntity::class,
         SettlementPaymentEntity::class,
         PeriodClosureEntity::class,
         CacheFlagEntity::class,
     ],
-    version = 4,
+    version = 5,
     exportSchema = false,
 )
 abstract class CuentasClarasDatabase : RoomDatabase() {

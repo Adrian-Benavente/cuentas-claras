@@ -49,6 +49,23 @@ data class ExpenseEntity(
     val installmentSeriesId: String? = null,
     val installmentIndex: Int? = null,
     val installmentCount: Int? = null,
+    val categoryId: String? = null,
+    val categoryName: String? = null,
+    val categoryIconKey: String? = null,
+)
+
+@Entity(
+    tableName = "cached_expense_categories",
+    indices = [Index("groupId")],
+)
+data class ExpenseCategoryEntity(
+    @PrimaryKey val id: String,
+    val groupId: String,
+    val name: String,
+    val iconKey: String,
+    val createdBy: String,
+    val createdAt: String,
+    val updatedAt: String,
 )
 
 @Entity(

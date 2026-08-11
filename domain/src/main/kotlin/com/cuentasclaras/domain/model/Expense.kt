@@ -13,6 +13,7 @@ enum class SplitType {
 data class Expense(
     val id: ExpenseId,
     val groupId: GroupId,
+    /** Optional note; legacy expenses without category use this as the full title. */
     val description: String,
     val amount: Money,
     val paidBy: UserId,
@@ -24,12 +25,17 @@ data class Expense(
     val installmentSeriesId: String? = null,
     val installmentIndex: Int? = null,
     val installmentCount: Int? = null,
+    val categoryId: ExpenseCategoryId? = null,
+    val categoryName: String? = null,
+    val categoryIcon: CategoryIcon? = null,
 ) {
     val period: YearMonth get() = YearMonth.from(date)
     val isInstallment: Boolean get() = installmentSeriesId != null
 
     init {
-        require(description.isNotBlank()) { "Expense description must not be blank" }
+        require(description.isNotBlank() || categoryId != null) {
+            "Expense must have a note or a category"
+        }
         require(amount.amountMinor > 0L) { "Expense amount must be greater than zero" }
         require(splits.isNotEmpty()) { "Expense must have at least one split" }
         require(splits.sumOf { it.share.amountMinor } == amount.amountMinor) {
@@ -47,6 +53,10 @@ data class Expense(
             require(installmentIndex!! in 1..installmentCount) {
                 "Installment index must be between 1 and count"
             }
+        }
+        if (categoryId != null) {
+            require(!categoryName.isNullOrBlank()) { "Category name required when category is set" }
+            require(categoryIcon != null) { "Category icon required when category is set" }
         }
     }
 }

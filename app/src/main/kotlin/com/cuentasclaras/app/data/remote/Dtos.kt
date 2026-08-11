@@ -36,10 +36,27 @@ data class GroupMemberDto(
 )
 
 @Serializable
+data class ExpenseCategoryEmbedDto(
+    val name: String? = null,
+    @SerialName("icon_key") val iconKey: String? = null,
+)
+
+@Serializable
+data class ExpenseCategoryDto(
+    val id: String,
+    @SerialName("group_id") val groupId: String,
+    val name: String,
+    @SerialName("icon_key") val iconKey: String,
+    @SerialName("created_by") val createdBy: String,
+    @SerialName("created_at") val createdAt: String,
+    @SerialName("updated_at") val updatedAt: String,
+)
+
+@Serializable
 data class ExpenseDto(
     val id: String,
     @SerialName("group_id") val groupId: String,
-    val description: String,
+    val description: String = "",
     @SerialName("amount_minor") val amountMinor: Long,
     val currency: String,
     @SerialName("paid_by") val paidBy: String,
@@ -50,6 +67,10 @@ data class ExpenseDto(
     @SerialName("installment_series_id") val installmentSeriesId: String? = null,
     @SerialName("installment_index") val installmentIndex: Int? = null,
     @SerialName("installment_count") val installmentCount: Int? = null,
+    @SerialName("category_id") val categoryId: String? = null,
+    @SerialName("category_name") val categoryName: String? = null,
+    @SerialName("category_icon_key") val categoryIconKey: String? = null,
+    @SerialName("expense_categories") val categoryEmbed: ExpenseCategoryEmbedDto? = null,
     @SerialName("expense_splits") val splits: List<ExpenseSplitDto> = emptyList(),
 )
 
