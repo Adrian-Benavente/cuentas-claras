@@ -37,6 +37,8 @@ data class GroupContent(
     val summary: PeriodSummary,
     val isOwner: Boolean,
     val currentUserId: UserId?,
+    /** Period expenses whose equal split was saved with fewer members than the group has now. */
+    val expensesMissingMembers: Int = 0,
 )
 
 @HiltViewModel
@@ -136,13 +138,21 @@ class GroupViewModel @Inject constructor(
         val isOwner = members.any {
             it.userId == currentUserId && it.role == MemberRole.OWNER
         }
+        val memberIds = members.map { it.userId }
         val summary = PeriodSummaryCalculator.summarize(
             expenses = expenses,
-            memberIds = members.map { it.userId },
+            memberIds = memberIds,
             currency = group.currency,
             period = selectedPeriod,
             payments = payments,
         )
+        val memberIdSet = memberIds.toSet()
+        val expensesMissingMembers = expenses
+            .filter { it.period == selectedPeriod }
+            .count { expense ->
+                memberIdSet.size > 1 &&
+                    expense.splits.map { it.userId }.toSet() != memberIdSet
+            }
         return GroupContent(
             group = group,
             members = members,
@@ -151,6 +161,7 @@ class GroupViewModel @Inject constructor(
             summary = summary,
             isOwner = isOwner,
             currentUserId = currentUserId,
+            expensesMissingMembers = expensesMissingMembers,
         )
     }
 }

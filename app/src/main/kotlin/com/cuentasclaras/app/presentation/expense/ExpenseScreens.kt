@@ -153,6 +153,19 @@ fun ExpenseEditorScreen(
                 onDateChange = viewModel::onDateChange,
             )
 
+            Text(
+                text = when {
+                    state.members.size <= 1 ->
+                        "Solo hay un miembro en el grupo: el gasto queda a cargo completo. " +
+                            "Cuando se una alguien, editá y guardá de nuevo para repartirlo."
+                    else ->
+                        "Se divide en partes iguales entre ${state.members.size} miembros: " +
+                            state.members.joinToString { it.displayName }
+                },
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+
             state.errorMessage?.let {
                 Text(it, color = MaterialTheme.colorScheme.error)
             }
@@ -238,6 +251,9 @@ fun ExpenseDetailScreen(
         }
 
         val payer = state.members.find { it.userId == expense.paidBy }?.displayName ?: "Alguien"
+        val splitUserIds = expense.splits.map { it.userId }.toSet()
+        val memberIds = state.members.map { it.userId }.toSet()
+        val missingMembers = state.members.size > 1 && splitUserIds != memberIds
         Column(
             modifier = Modifier.padding(padding).padding(24.dp).fillMaxSize(),
             verticalArrangement = Arrangement.spacedBy(8.dp),
@@ -246,6 +262,21 @@ fun ExpenseDetailScreen(
             Text(MoneyFormatter.format(expense.amount), style = MaterialTheme.typography.headlineMedium)
             Text("Pagó: $payer")
             Text("Fecha: ${expense.date}")
+            Spacer(Modifier.height(8.dp))
+            Text("Reparto", style = MaterialTheme.typography.titleMedium)
+            expense.splits.forEach { split ->
+                val name = state.members.find { it.userId == split.userId }?.displayName
+                    ?: split.userId.value
+                Text("$name: ${MoneyFormatter.format(split.share)}")
+            }
+            if (missingMembers) {
+                Text(
+                    "Este gasto no incluye a todos los miembros actuales. " +
+                        "Editá y guardá de nuevo para redistribuirlo en partes iguales.",
+                    color = MaterialTheme.colorScheme.error,
+                    style = MaterialTheme.typography.bodyMedium,
+                )
+            }
             state.errorMessage?.let {
                 Text(it, color = MaterialTheme.colorScheme.error)
             }

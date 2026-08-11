@@ -229,6 +229,23 @@ private fun SummaryTab(
                 fontWeight = FontWeight.Bold,
             )
         }
+        if (content.expensesMissingMembers > 0) {
+            item {
+                Text(
+                    text = if (content.expensesMissingMembers == 1) {
+                        "Hay 1 gasto de este período que no se reparte entre todos los miembros " +
+                            "(suele pasar si se cargó antes de que alguien se uniera). " +
+                            "Abrilo, editá y guardá de nuevo para redistribuirlo."
+                    } else {
+                        "Hay ${content.expensesMissingMembers} gastos de este período que no se reparten " +
+                            "entre todos los miembros (suele pasar si se cargaron antes de que alguien se uniera). " +
+                            "Entrá a cada uno, editá y guardá de nuevo para redistribuirlos."
+                    },
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.error,
+                )
+            }
+        }
         items(content.summary.memberBalances) { balance ->
             MemberBalanceCard(
                 balance = balance,

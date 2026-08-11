@@ -54,5 +54,7 @@ Settlement payments store `period_year` / `period_month` explicitly.
 ## Expenses
 
 - Amount must be `> 0`.
-- MVP: all group members participate with `EQUAL`.
-- Edit/delete recalculates from source expenses (no cached authoritative balances).
+- MVP: equal split among **members present when the expense is saved**.
+- Splits are persisted on `expense_splits` and are **not** auto-updated when someone joins later.
+  If a gasto was created while alone in the group, it stays 100% on that member until edited and saved again (which re-splits among current members).
+- Edit/delete recalculates balances from source expenses (no cached authoritative balances).
