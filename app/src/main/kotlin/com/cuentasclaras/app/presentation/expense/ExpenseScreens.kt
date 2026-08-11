@@ -26,10 +26,13 @@ import androidx.compose.material3.MenuAnchorType
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -41,9 +44,12 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
+import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.cuentasclaras.app.presentation.components.ExpenseDateField
 import com.cuentasclaras.app.util.MoneyFormatter
-import java.time.LocalDate
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -142,16 +148,9 @@ fun ExpenseEditorScreen(
                 }
             }
 
-            OutlinedTextField(
-                value = state.date.toString(),
-                onValueChange = { raw ->
-                    runCatching { LocalDate.parse(raw) }.getOrNull()?.let(viewModel::onDateChange)
-                },
-                label = { Text("Fecha (AAAA-MM-DD)") },
-                singleLine = true,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .semantics { contentDescription = "Fecha del gasto" },
+            ExpenseDateField(
+                date = state.date,
+                onDateChange = viewModel::onDateChange,
             )
 
             state.errorMessage?.let {
@@ -180,6 +179,8 @@ fun ExpenseEditorScreen(
 fun ExpenseDetailScreen(
     groupId: String,
     expenseId: String,
+    flashMessage: String? = null,
+    onFlashConsumed: () -> Unit = {},
     onEdit: () -> Unit,
     onDeleted: () -> Unit,
     onBack: () -> Unit,
@@ -187,9 +188,27 @@ fun ExpenseDetailScreen(
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
     var showDeleteConfirm by remember { mutableStateOf(false) }
+    val snackbarHostState = remember { SnackbarHostState() }
+    val lifecycleOwner = LocalLifecycleOwner.current
+
+    DisposableEffect(lifecycleOwner, viewModel) {
+        val observer = LifecycleEventObserver { _, event ->
+            if (event == Lifecycle.Event.ON_RESUME) {
+                viewModel.refresh()
+            }
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
+    }
 
     LaunchedEffect(state.deleted) {
         if (state.deleted) onDeleted()
+    }
+
+    LaunchedEffect(flashMessage) {
+        val message = flashMessage ?: return@LaunchedEffect
+        snackbarHostState.showSnackbar(message)
+        onFlashConsumed()
     }
 
     Scaffold(
@@ -203,6 +222,7 @@ fun ExpenseDetailScreen(
                 },
             )
         },
+        snackbarHost = { SnackbarHost(snackbarHostState) },
     ) { padding ->
         val expense = state.expense
         if (state.isLoading) {

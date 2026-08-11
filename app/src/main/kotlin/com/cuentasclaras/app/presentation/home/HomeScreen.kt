@@ -2,9 +2,7 @@ package com.cuentasclaras.app.presentation.home
 
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
-import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
@@ -14,21 +12,17 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.Logout
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.GroupAdd
-import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.ListItem
-import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.getValue
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
@@ -38,6 +32,8 @@ import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.cuentasclaras.app.presentation.components.FullScreenLoading
+import com.cuentasclaras.app.presentation.components.FullScreenMessage
 import com.cuentasclaras.app.presentation.components.UiState
 import com.cuentasclaras.domain.model.Group
 
@@ -93,16 +89,21 @@ fun HomeScreen(
         },
     ) { padding ->
         when (val ui = state) {
-            UiState.Loading -> BoxLoading(Modifier.padding(padding))
-            UiState.Empty -> EmptyGroups(
+            UiState.Loading -> FullScreenLoading(Modifier.padding(padding))
+            UiState.Empty -> FullScreenMessage(
+                title = "Todavía no tenés grupos",
+                body = "Creá uno o unite con un código de invitación.",
+                actionLabel = "Crear grupo",
+                onAction = onCreateGroup,
                 modifier = Modifier.padding(padding),
-                onCreateGroup = onCreateGroup,
-                onJoinGroup = onJoinGroup,
             )
-            is UiState.Error -> ErrorState(
+            is UiState.Error -> FullScreenMessage(
+                title = "No pudimos cargar tus grupos",
+                body = ui.message,
+                actionLabel = "Reintentar",
+                onAction = { viewModel.refresh(showLoading = true) },
+                isError = true,
                 modifier = Modifier.padding(padding),
-                message = ui.message,
-                onRetry = viewModel::refresh,
             )
             is UiState.Content -> GroupList(
                 modifier = Modifier.padding(padding),
@@ -134,52 +135,5 @@ private fun GroupList(
                     .semantics { contentDescription = "Abrir grupo ${group.name}" },
             )
         }
-    }
-}
-
-@Composable
-private fun EmptyGroups(
-    modifier: Modifier,
-    onCreateGroup: () -> Unit,
-    onJoinGroup: () -> Unit,
-) {
-    Column(
-        modifier = modifier.fillMaxSize().padding(24.dp),
-        verticalArrangement = Arrangement.Center,
-        horizontalAlignment = Alignment.CenterHorizontally,
-    ) {
-        Text("Todavía no tenés grupos", style = MaterialTheme.typography.titleMedium)
-        Text(
-            "Creá uno o unite con un código de invitación.",
-            style = MaterialTheme.typography.bodyMedium,
-            modifier = Modifier.padding(top = 8.dp, bottom = 16.dp),
-        )
-        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            TextButton(onClick = onCreateGroup) { Text("Crear grupo") }
-            TextButton(onClick = onJoinGroup) { Text("Unirme") }
-        }
-    }
-}
-
-@Composable
-private fun BoxLoading(modifier: Modifier) {
-    Column(
-        modifier = modifier.fillMaxSize(),
-        verticalArrangement = Arrangement.Center,
-        horizontalAlignment = Alignment.CenterHorizontally,
-    ) {
-        CircularProgressIndicator()
-    }
-}
-
-@Composable
-private fun ErrorState(modifier: Modifier, message: String, onRetry: () -> Unit) {
-    Column(
-        modifier = modifier.fillMaxSize().padding(24.dp),
-        verticalArrangement = Arrangement.Center,
-        horizontalAlignment = Alignment.CenterHorizontally,
-    ) {
-        Text(message, color = MaterialTheme.colorScheme.error)
-        TextButton(onClick = onRetry) { Text("Reintentar") }
     }
 }

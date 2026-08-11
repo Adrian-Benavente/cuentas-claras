@@ -19,7 +19,6 @@ import androidx.compose.material.icons.automirrored.filled.NavigateBefore
 import androidx.compose.material.icons.automirrored.filled.NavigateNext
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Share
-import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
@@ -28,14 +27,18 @@ import androidx.compose.material3.ListItem
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.PrimaryTabRow
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Tab
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -50,6 +53,8 @@ import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.cuentasclaras.app.presentation.components.FullScreenLoading
+import com.cuentasclaras.app.presentation.components.FullScreenMessage
 import com.cuentasclaras.app.presentation.components.UiState
 import com.cuentasclaras.app.util.MoneyFormatter
 import com.cuentasclaras.domain.model.Expense
@@ -64,6 +69,8 @@ import java.util.Locale
 @Composable
 fun GroupScreen(
     groupId: String,
+    flashMessage: String? = null,
+    onFlashConsumed: () -> Unit = {},
     onBack: () -> Unit,
     onAddExpense: () -> Unit,
     onOpenExpense: (String) -> Unit,
@@ -73,18 +80,23 @@ fun GroupScreen(
     val state by viewModel.state.collectAsStateWithLifecycle()
     var tabIndex by rememberSaveable { mutableIntStateOf(0) }
     val tabs = listOf("Resumen", "Gastos", "Miembros", "Configuración")
+    val snackbarHostState = remember { SnackbarHostState() }
 
     val lifecycleOwner = LocalLifecycleOwner.current
     DisposableEffect(lifecycleOwner, viewModel) {
         val observer = LifecycleEventObserver { _, event ->
             if (event == Lifecycle.Event.ON_RESUME) {
-                // Reload when entering the screen and when returning from
-                // create/edit/delete expense so balances and history stay current.
                 viewModel.refresh(showLoading = false)
             }
         }
         lifecycleOwner.lifecycle.addObserver(observer)
         onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
+    }
+
+    LaunchedEffect(flashMessage) {
+        val message = flashMessage ?: return@LaunchedEffect
+        snackbarHostState.showSnackbar(message)
+        onFlashConsumed()
     }
 
     Scaffold(
@@ -100,6 +112,7 @@ fun GroupScreen(
                 },
             )
         },
+        snackbarHost = { SnackbarHost(snackbarHostState) },
         floatingActionButton = {
             if (tabIndex == 1) {
                 FloatingActionButton(
@@ -112,16 +125,20 @@ fun GroupScreen(
         },
     ) { padding ->
         when (val ui = state) {
-            UiState.Loading -> CenterLoading(Modifier.padding(padding))
-            is UiState.Error -> Column(
-                modifier = Modifier.padding(padding).fillMaxSize().padding(24.dp),
-                verticalArrangement = Arrangement.Center,
-                horizontalAlignment = Alignment.CenterHorizontally,
-            ) {
-                Text(ui.message, color = MaterialTheme.colorScheme.error)
-                TextButton(onClick = viewModel::refresh) { Text("Reintentar") }
-            }
-            UiState.Empty -> Unit
+            UiState.Loading -> FullScreenLoading(Modifier.padding(padding))
+            is UiState.Error -> FullScreenMessage(
+                title = "No pudimos cargar el grupo",
+                body = ui.message,
+                actionLabel = "Reintentar",
+                onAction = { viewModel.refresh(showLoading = true) },
+                isError = true,
+                modifier = Modifier.padding(padding),
+            )
+            UiState.Empty -> FullScreenMessage(
+                title = "Sin datos",
+                body = "Este grupo todavía no tiene información para mostrar.",
+                modifier = Modifier.padding(padding),
+            )
             is UiState.Content -> {
                 Column(Modifier.padding(padding).fillMaxSize()) {
                     PrimaryTabRow(selectedTabIndex = tabIndex) {
@@ -142,6 +159,7 @@ fun GroupScreen(
                         1 -> ExpensesTab(
                             content = ui.data,
                             onOpenExpense = onOpenExpense,
+                            onAddExpense = onAddExpense,
                         )
                         2 -> MembersTab(members = ui.data.members)
                         3 -> SettingsTab(
@@ -279,17 +297,16 @@ private fun TransferRow(transfer: SuggestedTransfer, members: List<GroupMember>)
 private fun ExpensesTab(
     content: GroupContent,
     onOpenExpense: (String) -> Unit,
+    onAddExpense: () -> Unit,
 ) {
     val periodExpenses = content.expenses.filter { it.period == content.period }
     if (periodExpenses.isEmpty()) {
-        Column(
-            modifier = Modifier.fillMaxSize().padding(24.dp),
-            verticalArrangement = Arrangement.Center,
-            horizontalAlignment = Alignment.CenterHorizontally,
-        ) {
-            Text("No hay gastos en este período.")
-            Text("Tocá + para agregar el primero.")
-        }
+        FullScreenMessage(
+            title = "No hay gastos en este período",
+            body = "Tocá + para registrar el primero. El resumen se actualiza al guardar.",
+            actionLabel = "Agregar gasto",
+            onAction = onAddExpense,
+        )
         return
     }
 
@@ -322,6 +339,13 @@ private fun ExpenseRow(
 
 @Composable
 private fun MembersTab(members: List<GroupMember>) {
+    if (members.isEmpty()) {
+        FullScreenMessage(
+            title = "Sin miembros",
+            body = "Compartí el código de invitación desde Configuración para sumar personas.",
+        )
+        return
+    }
     LazyColumn(contentPadding = PaddingValues(16.dp)) {
         items(members, key = { it.userId.value }) { member ->
             ListItem(
@@ -374,16 +398,5 @@ private fun SettingsTab(
         }
         Spacer(Modifier.height(24.dp))
         TextButton(onClick = onLogout) { Text("Cerrar sesión") }
-    }
-}
-
-@Composable
-private fun CenterLoading(modifier: Modifier) {
-    Column(
-        modifier = modifier.fillMaxSize(),
-        verticalArrangement = Arrangement.Center,
-        horizontalAlignment = Alignment.CenterHorizontally,
-    ) {
-        CircularProgressIndicator()
     }
 }

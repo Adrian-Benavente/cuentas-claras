@@ -182,13 +182,12 @@ class ExpenseDetailViewModel @Inject constructor(
     private val _state = MutableStateFlow(ExpenseDetailUiState())
     val state: StateFlow<ExpenseDetailUiState> = _state.asStateFlow()
 
-    init {
-        refresh()
-    }
-
     fun refresh() {
         viewModelScope.launch {
-            _state.value = _state.value.copy(isLoading = true, errorMessage = null)
+            val keepContent = _state.value.expense != null
+            if (!keepContent) {
+                _state.value = _state.value.copy(isLoading = true, errorMessage = null)
+            }
             runCatching {
                 val expense = expenseRepository.getExpense(groupId, expenseId)
                 val members = groupRepository.listMembers(groupId)
@@ -203,10 +202,12 @@ class ExpenseDetailViewModel @Inject constructor(
                     canEdit = currentUser == expense.createdBy || isOwner,
                 )
             }.onFailure {
-                _state.value = ExpenseDetailUiState(
-                    isLoading = false,
-                    errorMessage = "No pudimos cargar el gasto.",
-                )
+                if (!keepContent) {
+                    _state.value = ExpenseDetailUiState(
+                        isLoading = false,
+                        errorMessage = "No pudimos cargar el gasto.",
+                    )
+                }
             }
         }
     }

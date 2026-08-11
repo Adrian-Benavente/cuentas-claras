@@ -28,7 +28,7 @@ supabase/migrations → schema, RPCs y políticas RLS
 sdk.dir=/path/to/Android/Sdk
 supabase.url=https://YOUR_PROJECT.supabase.co
 supabase.anon.key=YOUR_ANON_KEY
-google.web.client.id=YOUR_WEB_CLIENT_ID.apps.googleusercontent.com
+google.web.client.id=YOUR_GOOGLE_WEB_CLIENT_ID.apps.googleusercontent.com
 ```
 
 Nunca commits `local.properties` ni la service-role key.
@@ -49,6 +49,34 @@ Nunca commits `local.properties` ni la service-role key.
 ./gradlew :app:assembleDebug
 ```
 
+### 4. Correr en emulador o dispositivo
+
+`installDebug` necesita un emulador o teléfono con depuración USB.
+
+```bash
+export ANDROID_HOME=$HOME/Android/Sdk
+export PATH="$ANDROID_HOME/platform-tools:$PATH"
+
+adb devices   # debe listar un device
+./gradlew :app:installDebug
+adb shell am start -n com.cuentasclaras.app/.MainActivity
+```
+
+En Android Studio también podés usar Run ▶.
+
+Para dejar `adb` disponible en zsh, agregá a `~/.zshrc`:
+
+```bash
+export ANDROID_HOME=$HOME/Android/Sdk
+export PATH="$ANDROID_HOME/platform-tools:$PATH"
+```
+
+## Notas de uso
+
+- Al volver a un grupo tras crear/editar/eliminar un gasto, la app **refresca** resumen e historial automáticamente.
+- Tras guardar o eliminar verás un snackbar de confirmación.
+- La fecha del gasto se elige con un date picker (no texto libre).
+
 ## Reglas de negocio (MVP)
 
 - Split EQUAL entre todos los miembros del grupo.
@@ -60,6 +88,8 @@ Nunca commits `local.properties` ni la service-role key.
 - Autorización en RLS / RPCs del servidor.
 
 ## Checklist MVP
+
+Ver también [`docs/MVP_CHECKLIST.md`](docs/MVP_CHECKLIST.md) para la verificación en dispositivo.
 
 - [x] Registro / login / logout / reset password
 - [x] Google Sign-In (Credential Manager + Supabase ID token)
@@ -74,3 +104,5 @@ Nunca commits `local.properties` ni la service-role key.
 ## Seguridad
 
 Un usuario solo accede a grupos donde es miembro. Las policies RLS y las funciones `security definer` son la autoridad; la UI no es el control de acceso.
+
+Más detalle en [`docs/SECURITY.md`](docs/SECURITY.md).

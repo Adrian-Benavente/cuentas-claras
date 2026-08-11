@@ -32,6 +32,8 @@ object Routes {
     const val ExpenseDetail = "group/{groupId}/expense/{expenseId}"
     const val EditExpense = "group/{groupId}/expense/{expenseId}/edit"
 
+    const val FlashMessageKey = "flash_message"
+
     fun group(groupId: String) = "group/$groupId"
     fun createExpense(groupId: String) = "group/$groupId/expense/new"
     fun expenseDetail(groupId: String, expenseId: String) = "group/$groupId/expense/$expenseId"
@@ -120,8 +122,13 @@ fun CuentasClarasNavHost() {
             arguments = listOf(navArgument("groupId") { type = NavType.StringType }),
         ) { entry ->
             val groupId = entry.arguments?.getString("groupId").orEmpty()
+            val flashMessage by entry.savedStateHandle
+                .getStateFlow<String?>(Routes.FlashMessageKey, null)
+                .collectAsStateWithLifecycle()
             GroupScreen(
                 groupId = groupId,
+                flashMessage = flashMessage,
+                onFlashConsumed = { entry.savedStateHandle[Routes.FlashMessageKey] = null },
                 onBack = { navController.popBackStack() },
                 onAddExpense = { navController.navigate(Routes.createExpense(groupId)) },
                 onOpenExpense = { expenseId ->
@@ -138,12 +145,16 @@ fun CuentasClarasNavHost() {
         composable(
             route = Routes.CreateExpense,
             arguments = listOf(navArgument("groupId") { type = NavType.StringType }),
-        ) { entry ->
-            val groupId = entry.arguments?.getString("groupId").orEmpty()
+        ) {
             ExpenseEditorScreen(
-                groupId = groupId,
+                groupId = it.arguments?.getString("groupId").orEmpty(),
                 expenseId = null,
-                onDone = { navController.popBackStack() },
+                onDone = {
+                    navController.previousBackStackEntry
+                        ?.savedStateHandle
+                        ?.set(Routes.FlashMessageKey, "Gasto guardado")
+                    navController.popBackStack()
+                },
                 onBack = { navController.popBackStack() },
             )
         }
@@ -156,11 +167,21 @@ fun CuentasClarasNavHost() {
         ) { entry ->
             val groupId = entry.arguments?.getString("groupId").orEmpty()
             val expenseId = entry.arguments?.getString("expenseId").orEmpty()
+            val flashMessage by entry.savedStateHandle
+                .getStateFlow<String?>(Routes.FlashMessageKey, null)
+                .collectAsStateWithLifecycle()
             ExpenseDetailScreen(
                 groupId = groupId,
                 expenseId = expenseId,
+                flashMessage = flashMessage,
+                onFlashConsumed = { entry.savedStateHandle[Routes.FlashMessageKey] = null },
                 onEdit = { navController.navigate(Routes.editExpense(groupId, expenseId)) },
-                onDeleted = { navController.popBackStack() },
+                onDeleted = {
+                    navController.previousBackStackEntry
+                        ?.savedStateHandle
+                        ?.set(Routes.FlashMessageKey, "Gasto eliminado")
+                    navController.popBackStack()
+                },
                 onBack = { navController.popBackStack() },
             )
         }
@@ -176,7 +197,12 @@ fun CuentasClarasNavHost() {
             ExpenseEditorScreen(
                 groupId = groupId,
                 expenseId = expenseId,
-                onDone = { navController.popBackStack() },
+                onDone = {
+                    navController.previousBackStackEntry
+                        ?.savedStateHandle
+                        ?.set(Routes.FlashMessageKey, "Gasto actualizado")
+                    navController.popBackStack()
+                },
                 onBack = { navController.popBackStack() },
             )
         }
