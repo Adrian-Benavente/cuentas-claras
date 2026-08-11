@@ -85,9 +85,9 @@ Settlement payments store `period_year` / `period_month` explicitly.
 
 ### Installments (cuotas)
 
-- Create with **total** amount + **N** cuotas (`2 ≤ N ≤ 48`) via `create_installment_expenses`.
-- Always materializes the full series `1/N` … `N/N` from the start date.
-- Total is split across N months with the same remainder rule as equal split (`base = total/N`, first `total%N` get +1).
+- Create with **total** original amount + **N** cuotas (`2 ≤ N ≤ 48`) and start index **K** (`1 ≤ K ≤ N`) via `create_installment_expenses`.
+- Materializes remaining cuotas `K/N` … `N/N` from the chosen date (date of cuota K); does not invent past cuotas `1..K−1`.
+- Total is split across the full N plan with the same remainder rule as equal split (`base = total/N`, first `total%N` get +1); only K..N rows are inserted.
 - Each cuota is a normal expense in its month (description ends with `(k/N)`), linked by `installment_series_id`.
 - Dates keep the start day-of-month, clamped to each month's length.
 - If any target month is **CLOSED**, the whole create fails.

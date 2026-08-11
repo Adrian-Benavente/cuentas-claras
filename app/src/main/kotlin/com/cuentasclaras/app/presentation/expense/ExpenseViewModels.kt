@@ -43,6 +43,7 @@ data class ExpenseEditorUiState(
     val closedPeriods: Set<YearMonth> = emptySet(),
     val isInstallment: Boolean = false,
     val installmentCountInput: String = "3",
+    val installmentStartIndexInput: String = "1",
     val isLoading: Boolean = false,
     val isSaving: Boolean = false,
     val errorMessage: String? = null,
@@ -59,23 +60,33 @@ data class ExpenseEditorUiState(
     val parsedInstallmentCount: Int?
         get() = installmentCountInput.trim().toIntOrNull()
 
+    val parsedInstallmentStartIndex: Int?
+        get() = installmentStartIndexInput.trim().toIntOrNull()
+
     val installmentPreview: String?
         get() {
             if (!isInstallment || existing != null) return null
             val total = MoneyFormatter.parseToMinor(amountInput, currency) ?: return null
             val count = parsedInstallmentCount ?: return null
+            val startIndex = parsedInstallmentStartIndex ?: return null
             if (total <= 0L || count !in InstallmentPlanner.MIN_COUNT..InstallmentPlanner.MAX_COUNT) {
                 return null
             }
+            if (startIndex !in 1..count) return null
             return runCatching {
-                val slices = InstallmentPlanner.plan(total, count, date)
-                val first = slices.first().amountMinor
+                val slices = InstallmentPlanner.planRemaining(total, count, startIndex, date)
+                val first = slices.first()
                 val lastDate = slices.last().date
                 val monthLabel = lastDate.month
                     .getDisplayName(TextStyle.FULL, Locale.forLanguageTag("es-AR"))
                     .replaceFirstChar { it.titlecase(Locale.forLanguageTag("es-AR")) }
-                "Cada cuota: ${MoneyFormatter.format(Money(first, currency))} · " +
-                    "$count gastos · hasta $monthLabel ${lastDate.year}"
+                val rangeLabel = if (slices.size == 1) {
+                    "Cuota ${first.index}/$count"
+                } else {
+                    "Cuotas ${first.index}–$count"
+                }
+                "$rangeLabel · cada una: ${MoneyFormatter.format(Money(first.amountMinor, currency))} · " +
+                    "${slices.size} gastos · hasta $monthLabel ${lastDate.year}"
             }.getOrNull()
         }
 
@@ -85,11 +96,13 @@ data class ExpenseEditorUiState(
             if (!isInstallment || existing != null) return isSelectedDateClosed
             val total = MoneyFormatter.parseToMinor(amountInput, currency) ?: return isSelectedDateClosed
             val count = parsedInstallmentCount ?: return isSelectedDateClosed
+            val startIndex = parsedInstallmentStartIndex ?: return isSelectedDateClosed
             if (total <= 0L || count !in InstallmentPlanner.MIN_COUNT..InstallmentPlanner.MAX_COUNT) {
                 return isSelectedDateClosed
             }
+            if (startIndex !in 1..count) return isSelectedDateClosed
             return runCatching {
-                InstallmentPlanner.plan(total, count, date).any {
+                InstallmentPlanner.planRemaining(total, count, startIndex, date).any {
                     !PeriodGate.canMutateExpense(it.date, closedPeriods)
                 }
             }.getOrDefault(isSelectedDateClosed)
@@ -173,6 +186,11 @@ class ExpenseEditorViewModel @Inject constructor(
         _state.value = _state.value.copy(installmentCountInput = filtered, errorMessage = null)
     }
 
+    fun onInstallmentStartIndexChange(value: String) {
+        val filtered = value.filter { it.isDigit() }.take(2)
+        _state.value = _state.value.copy(installmentStartIndexInput = filtered, errorMessage = null)
+    }
+
     fun save() {
         val current = _state.value
         val description = current.description.trim()
@@ -180,6 +198,7 @@ class ExpenseEditorViewModel @Inject constructor(
         val paidBy = current.paidBy
         val createdBy = authRepository.currentUserId()
         val installmentCount = current.parsedInstallmentCount
+        val installmentStartIndex = current.parsedInstallmentStartIndex
 
         when {
             description.isBlank() -> {
@@ -218,6 +237,15 @@ class ExpenseEditorViewModel @Inject constructor(
                 )
                 return
             }
+            current.isInstallment && expenseId == null &&
+                (installmentStartIndex == null ||
+                    installmentCount == null ||
+                    installmentStartIndex !in 1..installmentCount) -> {
+                _state.value = current.copy(
+                    errorMessage = "La cuota actual tiene que estar entre 1 y $installmentCount.",
+                )
+                return
+            }
             current.isMutationBlocked -> {
                 _state.value = current.copy(
                     errorMessage = if (current.isInstallment && expenseId == null) {
@@ -247,6 +275,7 @@ class ExpenseEditorViewModel @Inject constructor(
                         paidBy = paidBy!!,
                         startDate = current.date,
                         installmentCount = installmentCount!!,
+                        startIndex = installmentStartIndex!!,
                         participantIds = participants,
                     )
                 } else if (expenseId == null) {

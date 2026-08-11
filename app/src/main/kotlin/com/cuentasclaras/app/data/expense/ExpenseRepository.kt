@@ -115,6 +115,7 @@ class ExpenseRepository @Inject constructor(
         paidBy: UserId,
         startDate: LocalDate,
         installmentCount: Int,
+        startIndex: Int,
         participantIds: List<UserId>,
     ): List<Expense> {
         val payload = buildJsonObject {
@@ -125,6 +126,7 @@ class ExpenseRepository @Inject constructor(
             put("p_paid_by", paidBy.value)
             put("p_start_date", startDate.toString())
             put("p_installment_count", installmentCount)
+            put("p_start_index", startIndex)
             putJsonArray("p_participant_ids") {
                 participantIds.forEach { add(it.value) }
             }

@@ -38,8 +38,9 @@ Usá dos cuentas (email o Google) en emulador/dispositivo.
 - [ ] Eliminar gasto (confirmación) y ver snackbar "Gasto eliminado"
 - [ ] Saldos recalculados tras editar/eliminar
 - [ ] (Legacy) Si hay un gasto creado solo, el aviso de reparto incompleto y re-guardar lo redistribuye
-- [ ] **En cuotas**: switch al crear → total + N; se crean N gastos `(1/N)`…`(N/N)` en meses sucesivos
-- [ ] Preview muestra monto por cuota y hasta qué mes
+- [ ] **En cuotas**: switch al crear → total + K de N; se crean gastos `(K/N)`…`(N/N)` en meses sucesivos
+- [ ] Preview muestra rango de cuotas, monto por cuota y hasta qué mes
+- [ ] Empezar en K>1 no crea cuotas pasadas; montos siguen el plan del total original
 - [ ] Navegar a un mes futuro y ver la cuota correspondiente en Resumen/Gastos
 - [ ] Detalle de cuota: eliminar **Solo esta** o **Toda la serie**
 

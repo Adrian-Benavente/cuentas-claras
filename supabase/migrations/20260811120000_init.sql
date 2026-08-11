@@ -902,6 +902,7 @@ create or replace function public.create_installment_expenses(
   p_paid_by uuid,
   p_start_date date,
   p_installment_count int,
+  p_start_index int,
   p_participant_ids uuid[]
 )
 returns jsonb
@@ -913,9 +914,12 @@ declare
   v_series_id uuid := gen_random_uuid();
   v_base_desc text := trim(p_description);
   v_count int := p_installment_count;
+  v_start_index int := p_start_index;
   v_base bigint;
   v_remainder bigint;
-  v_offset int;
+  v_index int;
+  v_amount_offset int;
+  v_date_offset int;
   v_amount bigint;
   v_period date;
   v_last_day date;
@@ -948,6 +952,9 @@ begin
   if v_count is null or v_count < 2 or v_count > 48 then
     raise exception 'invalid installment count';
   end if;
+  if v_start_index is null or v_start_index < 1 or v_start_index > v_count then
+    raise exception 'invalid installment start index';
+  end if;
   if v_base_desc is null or char_length(v_base_desc) = 0 then
     raise exception 'description must not be blank';
   end if;
@@ -976,9 +983,11 @@ begin
   v_remainder := p_amount_minor % v_count;
   v_start_day := extract(day from p_start_date)::int;
 
-  for v_offset in 0 .. (v_count - 1) loop
-    v_amount := v_base + case when v_offset < v_remainder then 1 else 0 end;
-    v_period := (date_trunc('month', p_start_date) + make_interval(months => v_offset))::date;
+  for v_index in v_start_index .. v_count loop
+    v_amount_offset := v_index - 1;
+    v_date_offset := v_index - v_start_index;
+    v_amount := v_base + case when v_amount_offset < v_remainder then 1 else 0 end;
+    v_period := (date_trunc('month', p_start_date) + make_interval(months => v_date_offset))::date;
     v_last_day := (date_trunc('month', v_period) + interval '1 month - 1 day')::date;
     v_day := least(v_start_day, extract(day from v_last_day)::int);
     v_date := make_date(
@@ -1008,14 +1017,14 @@ begin
       installment_count
     ) values (
       p_group_id,
-      v_base_desc || ' (' || (v_offset + 1)::text || '/' || v_count::text || ')',
+      v_base_desc || ' (' || v_index::text || '/' || v_count::text || ')',
       v_amount,
       p_currency,
       p_paid_by,
       v_date,
       auth.uid(),
       v_series_id,
-      v_offset + 1,
+      v_index,
       v_count
     ) returning id into v_expense_id;
 
@@ -1100,7 +1109,7 @@ $$;
 
 grant execute on function public.expense_to_json(uuid) to authenticated;
 grant execute on function public.create_installment_expenses(
-  uuid, text, bigint, text, uuid, date, int, uuid[]
+  uuid, text, bigint, text, uuid, date, int, int, uuid[]
 ) to authenticated;
 grant execute on function public.delete_installment_series(uuid) to authenticated;
 

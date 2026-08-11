@@ -35,6 +35,8 @@ object UserFacingError {
             "Necesitás al menos otra persona en el grupo para cargar un gasto."
         message.contains("invalid installment count") ->
             "La cantidad de cuotas tiene que ser entre 2 y 48."
+        message.contains("invalid installment start index") ->
+            "La cuota actual tiene que estar entre 1 y el total de cuotas."
         message.contains("cannot delete installment in closed period") ->
             "No se puede borrar toda la serie: alguna cuota está en un período cerrado. " +
                 "Borralas de a una desde los meses abiertos."

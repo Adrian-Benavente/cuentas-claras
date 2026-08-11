@@ -146,21 +146,36 @@ fun ExpenseEditorScreen(
                     )
                 }
                 if (state.isInstallment) {
-                    OutlinedTextField(
-                        value = state.installmentCountInput,
-                        onValueChange = viewModel::onInstallmentCountChange,
-                        label = { Text("Cantidad de cuotas") },
-                        singleLine = true,
-                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                        supportingText = {
-                            Text(
-                                "Entre ${InstallmentPlanner.MIN_COUNT} y ${InstallmentPlanner.MAX_COUNT}",
-                            )
-                        },
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .semantics { contentDescription = "Cantidad de cuotas" },
-                    )
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(12.dp),
+                    ) {
+                        OutlinedTextField(
+                            value = state.installmentStartIndexInput,
+                            onValueChange = viewModel::onInstallmentStartIndexChange,
+                            label = { Text("Cuota") },
+                            singleLine = true,
+                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                            modifier = Modifier
+                                .weight(1f)
+                                .semantics { contentDescription = "Número de cuota actual" },
+                        )
+                        OutlinedTextField(
+                            value = state.installmentCountInput,
+                            onValueChange = viewModel::onInstallmentCountChange,
+                            label = { Text("De") },
+                            singleLine = true,
+                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                            supportingText = {
+                                Text(
+                                    "Entre ${InstallmentPlanner.MIN_COUNT} y ${InstallmentPlanner.MAX_COUNT}",
+                                )
+                            },
+                            modifier = Modifier
+                                .weight(1f)
+                                .semantics { contentDescription = "Cantidad total de cuotas" },
+                        )
+                    }
                     state.installmentPreview?.let { preview ->
                         Text(
                             preview,
@@ -169,7 +184,7 @@ fun ExpenseEditorScreen(
                         )
                     }
                     Text(
-                        "La fecha es la de la primera cuota. Se crean gastos en los meses siguientes.",
+                        "La fecha es la de esta cuota. Se crean solo las cuotas que faltan.",
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
