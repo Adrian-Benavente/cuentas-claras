@@ -34,11 +34,13 @@ class AuthRepository @Inject constructor(
 
     suspend fun initialize() {
         runCatching {
+            client.auth.awaitInitialization()
             val session = client.auth.currentSessionOrNull()
             if (session == null) {
                 _sessionState.value = SessionState.SignedOut
             } else {
-                _sessionState.value = SessionState.SignedIn(loadCurrentUser())
+                val user = runCatching { loadCurrentUser() }.getOrElse { userFromAuth() }
+                _sessionState.value = SessionState.SignedIn(user)
             }
         }.onFailure {
             _sessionState.value = SessionState.SignedOut
@@ -101,7 +103,13 @@ class AuthRepository @Inject constructor(
             }
             .decodeList<ProfileDto>()
 
-        return profiles.firstOrNull()?.toDomain() ?: User(
+        return profiles.firstOrNull()?.toDomain() ?: userFromAuth()
+    }
+
+    private fun userFromAuth(): User {
+        val authUser = client.auth.currentUserOrNull()
+            ?: error("No hay sesión activa")
+        return User(
             id = UserId(authUser.id),
             name = authUser.email?.substringBefore("@") ?: "Usuario",
             email = authUser.email,
