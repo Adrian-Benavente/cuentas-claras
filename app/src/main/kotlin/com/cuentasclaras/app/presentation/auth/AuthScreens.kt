@@ -32,6 +32,7 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
+import android.util.Log
 import androidx.credentials.CredentialManager
 import androidx.credentials.GetCredentialRequest
 import androidx.credentials.exceptions.GetCredentialException
@@ -155,9 +156,17 @@ fun LoginScreen(
                                 .createFrom(result.credential.data)
                                 .idToken
                             viewModel.signInWithGoogleIdToken(googleIdToken)
-                        } catch (_: GetCredentialException) {
+                        } catch (error: GetCredentialException) {
+                            Log.e(
+                                "cuentasclaras",
+                                "Google getCredential failed: ${error.javaClass.simpleName} type=${error.type} msg=${error.message}",
+                            )
                             viewModel.showError("No se pudo iniciar sesión con Google.")
-                        } catch (_: Exception) {
+                        } catch (error: Exception) {
+                            Log.e(
+                                "cuentasclaras",
+                                "Google sign-in failed: ${error.javaClass.simpleName}: ${error.message}",
+                            )
                             viewModel.showError("No se pudo iniciar sesión con Google.")
                         }
                     }
