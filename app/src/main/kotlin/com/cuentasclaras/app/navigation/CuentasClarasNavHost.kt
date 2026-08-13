@@ -24,7 +24,9 @@ import com.cuentasclaras.app.presentation.group.CreateGroupScreen
 import com.cuentasclaras.app.presentation.group.GroupScreen
 import com.cuentasclaras.app.presentation.group.JoinGroupScreen
 import com.cuentasclaras.app.presentation.home.HomeScreen
+import com.cuentasclaras.app.presentation.push.PushNotificationSetup
 import com.cuentasclaras.app.presentation.splash.SplashScreen
+import com.cuentasclaras.app.util.ExpenseDeepLink
 import kotlinx.coroutines.launch
 
 object Routes {
@@ -57,12 +59,15 @@ object Routes {
 @Composable
 fun CuentasClarasNavHost(
     pendingJoinCode: String? = null,
+    pendingExpenseLink: ExpenseDeepLink? = null,
     onPendingJoinCodeConsumed: () -> Unit = {},
+    onPendingExpenseLinkConsumed: () -> Unit = {},
 ) {
     val navController = rememberNavController()
     val authViewModel: AuthViewModel = hiltViewModel()
     val session by authViewModel.sessionState.collectAsStateWithLifecycle()
     var queuedJoinCode by remember { mutableStateOf(pendingJoinCode) }
+    var queuedExpenseLink by remember { mutableStateOf(pendingExpenseLink) }
     val scope = rememberCoroutineScope()
 
     fun navigateToLoginAfterLogout() {
@@ -80,14 +85,43 @@ fun CuentasClarasNavHost(
         }
     }
 
+    LaunchedEffect(pendingExpenseLink) {
+        if (pendingExpenseLink != null) {
+            queuedExpenseLink = pendingExpenseLink
+        }
+    }
+
+    if (session is SessionState.SignedIn) {
+        PushNotificationSetup()
+    }
+
+    fun navigateToExpense(link: ExpenseDeepLink) {
+        navController.navigate(Routes.Home) {
+            launchSingleTop = true
+        }
+        navController.navigate(Routes.group(link.groupId)) {
+            launchSingleTop = true
+        }
+        navController.navigate(Routes.expenseDetail(link.groupId, link.expenseId)) {
+            launchSingleTop = true
+        }
+        queuedExpenseLink = null
+        onPendingExpenseLinkConsumed()
+    }
+
     // Deep link while the app is already open and authenticated.
-    LaunchedEffect(queuedJoinCode, session) {
-        val code = queuedJoinCode ?: return@LaunchedEffect
+    LaunchedEffect(queuedJoinCode, queuedExpenseLink, session) {
         if (session !is SessionState.SignedIn) return@LaunchedEffect
         val route = navController.currentDestination?.route ?: return@LaunchedEffect
         if (route == Routes.Splash || route == Routes.Login || route == Routes.Register) {
             return@LaunchedEffect
         }
+        val expenseLink = queuedExpenseLink
+        if (expenseLink != null) {
+            navigateToExpense(expenseLink)
+            return@LaunchedEffect
+        }
+        val code = queuedJoinCode ?: return@LaunchedEffect
         navController.navigate(Routes.joinGroup(code)) {
             launchSingleTop = true
         }
@@ -100,16 +134,31 @@ fun CuentasClarasNavHost(
             SplashScreen(
                 sessionState = session,
                 onAuthenticated = {
+                    val expenseLink = queuedExpenseLink
                     val code = queuedJoinCode
-                    if (!code.isNullOrBlank()) {
-                        navController.navigate(Routes.joinGroup(code)) {
-                            popUpTo(Routes.Splash) { inclusive = true }
+                    when {
+                        expenseLink != null -> {
+                            navController.navigate(Routes.Home) {
+                                popUpTo(Routes.Splash) { inclusive = true }
+                            }
+                            navController.navigate(Routes.group(expenseLink.groupId))
+                            navController.navigate(
+                                Routes.expenseDetail(expenseLink.groupId, expenseLink.expenseId),
+                            )
+                            queuedExpenseLink = null
+                            onPendingExpenseLinkConsumed()
                         }
-                        queuedJoinCode = null
-                        onPendingJoinCodeConsumed()
-                    } else {
-                        navController.navigate(Routes.Home) {
-                            popUpTo(Routes.Splash) { inclusive = true }
+                        !code.isNullOrBlank() -> {
+                            navController.navigate(Routes.joinGroup(code)) {
+                                popUpTo(Routes.Splash) { inclusive = true }
+                            }
+                            queuedJoinCode = null
+                            onPendingJoinCodeConsumed()
+                        }
+                        else -> {
+                            navController.navigate(Routes.Home) {
+                                popUpTo(Routes.Splash) { inclusive = true }
+                            }
                         }
                     }
                 },
@@ -124,16 +173,31 @@ fun CuentasClarasNavHost(
             LoginScreen(
                 viewModel = authViewModel,
                 onLoggedIn = {
+                    val expenseLink = queuedExpenseLink
                     val code = queuedJoinCode
-                    if (!code.isNullOrBlank()) {
-                        navController.navigate(Routes.joinGroup(code)) {
-                            popUpTo(Routes.Login) { inclusive = true }
+                    when {
+                        expenseLink != null -> {
+                            navController.navigate(Routes.Home) {
+                                popUpTo(Routes.Login) { inclusive = true }
+                            }
+                            navController.navigate(Routes.group(expenseLink.groupId))
+                            navController.navigate(
+                                Routes.expenseDetail(expenseLink.groupId, expenseLink.expenseId),
+                            )
+                            queuedExpenseLink = null
+                            onPendingExpenseLinkConsumed()
                         }
-                        queuedJoinCode = null
-                        onPendingJoinCodeConsumed()
-                    } else {
-                        navController.navigate(Routes.Home) {
-                            popUpTo(Routes.Login) { inclusive = true }
+                        !code.isNullOrBlank() -> {
+                            navController.navigate(Routes.joinGroup(code)) {
+                                popUpTo(Routes.Login) { inclusive = true }
+                            }
+                            queuedJoinCode = null
+                            onPendingJoinCodeConsumed()
+                        }
+                        else -> {
+                            navController.navigate(Routes.Home) {
+                                popUpTo(Routes.Login) { inclusive = true }
+                            }
                         }
                     }
                 },

@@ -14,6 +14,7 @@ Aplicación Android para gastos compartidos entre parejas, familias y grupos peq
 :domain   → modelo y lógica financiera (testeable JVM)
 :app      → UI Compose, ViewModels, repositorios Supabase
 supabase/migrations → schema, RPCs y políticas RLS
+supabase/functions → Edge Functions (push FCM)
 ```
 
 ## Setup
@@ -42,7 +43,39 @@ Nunca commits `local.properties` ni la service-role key.
    - Google provider (con el mismo Web Client ID de OAuth)
 4. En Google Cloud Console, creá OAuth client (Web) + Android client (package `com.cuentasclaras.app` + SHA-1 de debug/release).
 
-### 3. Build y tests
+### 3. Notificaciones push (FCM)
+
+Hace falta un proyecto Firebase (puede ser el mismo Google Cloud del OAuth). El backend sigue siendo Supabase.
+
+1. En Firebase Console: agregá una app Android `com.cuentasclaras.app` con el SHA-1 de debug.
+2. Descargá `google-services.json` y reemplazá [`app/google-services.json`](app/google-services.json) (el del repo es un placeholder para CI).
+3. Ejecutá la migración [`supabase/migrations/20260813140000_push_notifications.sql`](supabase/migrations/20260813140000_push_notifications.sql) en el SQL Editor.
+4. Deploy de la Edge Function:
+
+```bash
+supabase functions deploy notify-expense --no-verify-jwt
+```
+
+5. Secrets de la function (Dashboard → Edge Functions → Secrets, o CLI):
+
+```bash
+supabase secrets set PUSH_WEBHOOK_SECRET=un-secreto-largo
+supabase secrets set FIREBASE_SERVICE_ACCOUNT='{"type":"service_account",...}'
+```
+
+`FIREBASE_SERVICE_ACCOUNT` es el JSON de una service account de Firebase/Google Cloud con permiso de Firebase Cloud Messaging. No lo pongas en la APK.
+
+`SUPABASE_URL` y `SUPABASE_SERVICE_ROLE_KEY` los inyecta el runtime.
+
+6. Database Webhook (Dashboard → Database → Webhooks):
+   - Table: `push_jobs`
+   - Events: Insert
+   - URL: `https://YOUR_PROJECT.supabase.co/functions/v1/notify-expense`
+   - HTTP header: `Authorization` = `Bearer un-secreto-largo` (el mismo `PUSH_WEBHOOK_SECRET`)
+
+Al iniciar sesión la app pide permiso de notificaciones (Android 13+) y registra el token. Logout borra el token de este dispositivo.
+
+### 4. Build y tests
 
 ```bash
 ./gradlew :domain:test
@@ -52,7 +85,7 @@ Nunca commits `local.properties` ni la service-role key.
 
 En GitHub Actions (`.github/workflows/ci.yml`) se corren esos mismos checks en cada push/PR a `main`.
 
-### 4. Correr en emulador o dispositivo
+### 5. Correr en emulador o dispositivo
 
 `installDebug` necesita un emulador o teléfono con depuración USB.
 
@@ -81,6 +114,7 @@ export PATH="$ANDROID_HOME/platform-tools:$PATH"
 - La fecha del gasto se elige con un date picker (no texto libre).
 - Tras crear un grupo, la app abre **Configuración** para invitar (hace falta ≥2 miembros para cargar gastos).
 - Invitaciones: copiar/compartir código, o abrir `cuentasclaras://join/{CODIGO}` si la otra persona ya tiene la app.
+- Un gasto creado o editado por otro miembro del grupo dispara una notificación push. Tocarla abre `cuentasclaras://group/{groupId}/expense/{expenseId}`.
 
 ## Reglas de negocio (MVP)
 

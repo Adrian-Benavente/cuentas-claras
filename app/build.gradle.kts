@@ -5,6 +5,7 @@ plugins {
     alias(libs.plugins.kotlin.serialization)
     alias(libs.plugins.hilt)
     alias(libs.plugins.ksp)
+    alias(libs.plugins.google.services)
 }
 
 import java.util.Properties
@@ -112,6 +113,10 @@ dependencies {
     implementation(libs.androidx.credentials.play)
     implementation(libs.googleid)
     implementation(libs.play.services.auth)
+
+    implementation(platform(libs.firebase.bom))
+    implementation(libs.firebase.messaging)
+    implementation(libs.kotlinx.coroutines.play.services)
 
     implementation(libs.androidx.room.runtime)
     implementation(libs.androidx.room.ktx)

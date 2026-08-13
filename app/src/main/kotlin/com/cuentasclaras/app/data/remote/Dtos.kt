@@ -133,3 +133,10 @@ data class PeriodClosureDto(
     @SerialName("closed_by") val closedBy: String,
     @SerialName("closed_at") val closedAt: String,
 )
+
+@Serializable
+data class DevicePushTokenDto(
+    @SerialName("user_id") val userId: String,
+    val token: String,
+)
+

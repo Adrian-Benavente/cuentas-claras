@@ -4,6 +4,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.cuentasclaras.app.data.auth.AuthRepository
 import com.cuentasclaras.app.data.auth.SessionState
+import com.cuentasclaras.app.data.push.PushRegistrar
 import com.cuentasclaras.app.util.UserFacingError
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -24,6 +25,7 @@ data class AuthUiFormState(
 @HiltViewModel
 class AuthViewModel @Inject constructor(
     private val authRepository: AuthRepository,
+    private val pushRegistrar: PushRegistrar,
 ) : ViewModel() {
 
     val sessionState: StateFlow<SessionState> = authRepository.sessionState
@@ -146,11 +148,12 @@ class AuthViewModel @Inject constructor(
 
     fun logout() {
         viewModelScope.launch {
-            runCatching { authRepository.signOut() }
+            runCatching { logoutAndAwait() }
         }
     }
 
     suspend fun logoutAndAwait() {
+        runCatching { pushRegistrar.unregisterCurrentDevice() }
         runCatching { authRepository.signOut() }
     }
 
