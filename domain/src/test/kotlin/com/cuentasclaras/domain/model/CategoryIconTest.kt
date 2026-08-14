@@ -10,6 +10,7 @@ class CategoryIconTest {
     fun fromValue_mapsKnownKeys() {
         assertThat(CategoryIcon.fromValue("bolt")).isEqualTo(CategoryIcon.BOLT)
         assertThat(CategoryIcon.fromValue("WATER_DROP")).isEqualTo(CategoryIcon.WATER_DROP)
+        assertThat(CategoryIcon.fromValue("sports_esports")).isEqualTo(CategoryIcon.SPORTS_ESPORTS)
     }
 
     @Test

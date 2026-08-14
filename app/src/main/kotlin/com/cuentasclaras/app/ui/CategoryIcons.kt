@@ -23,6 +23,7 @@ import androidx.compose.material.icons.filled.Phone
 import androidx.compose.material.icons.filled.Restaurant
 import androidx.compose.material.icons.filled.School
 import androidx.compose.material.icons.filled.ShoppingCart
+import androidx.compose.material.icons.filled.SportsEsports
 import androidx.compose.material.icons.filled.WaterDrop
 import androidx.compose.material.icons.filled.Wifi
 import androidx.compose.ui.graphics.vector.ImageVector
@@ -45,6 +46,7 @@ object CategoryIcons {
         CategoryIcon.PETS -> Icons.Filled.Pets
         CategoryIcon.FITNESS_CENTER -> Icons.Filled.FitnessCenter
         CategoryIcon.MOVIE -> Icons.Filled.Movie
+        CategoryIcon.SPORTS_ESPORTS -> Icons.Filled.SportsEsports
         CategoryIcon.FLIGHT -> Icons.Filled.Flight
         CategoryIcon.LOCAL_CAFE -> Icons.Filled.LocalCafe
         CategoryIcon.LOCAL_GROCERY_STORE -> Icons.Filled.LocalGroceryStore

@@ -20,6 +20,7 @@ enum class CategoryIcon(val value: String) {
     PETS("pets"),
     FITNESS_CENTER("fitness_center"),
     MOVIE("movie"),
+    SPORTS_ESPORTS("sports_esports"),
     FLIGHT("flight"),
     LOCAL_CAFE("local_cafe"),
     LOCAL_GROCERY_STORE("local_grocery_store"),
