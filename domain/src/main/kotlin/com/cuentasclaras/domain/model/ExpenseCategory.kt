@@ -17,6 +17,7 @@ data class ExpenseCategory(
     val createdBy: UserId,
     val createdAt: Instant,
     val updatedAt: Instant,
+    val isUncategorized: Boolean = false,
 ) {
     init {
         require(name.isNotBlank()) { "Category name must not be blank" }

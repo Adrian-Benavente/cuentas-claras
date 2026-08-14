@@ -11,7 +11,9 @@ object CategoryGate {
         createdBy: UserId,
         currentUserId: UserId?,
         isOwner: Boolean,
+        isUncategorized: Boolean = false,
     ): Boolean {
+        if (isUncategorized) return false
         if (currentUserId == null) return false
         return isOwner || createdBy == currentUserId
     }

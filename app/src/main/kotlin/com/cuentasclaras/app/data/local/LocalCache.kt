@@ -297,6 +297,7 @@ private fun ExpenseCategory.toEntity() = ExpenseCategoryEntity(
     createdBy = createdBy.value,
     createdAt = createdAt.toString(),
     updatedAt = updatedAt.toString(),
+    isUncategorized = isUncategorized,
 )
 
 private fun ExpenseCategoryEntity.toDomain() = ExpenseCategory(
@@ -307,6 +308,7 @@ private fun ExpenseCategoryEntity.toDomain() = ExpenseCategory(
     createdBy = UserId(createdBy),
     createdAt = Instant.parse(createdAt),
     updatedAt = Instant.parse(updatedAt),
+    isUncategorized = isUncategorized,
 )
 
 private fun SettlementPayment.toEntity() = SettlementPaymentEntity(

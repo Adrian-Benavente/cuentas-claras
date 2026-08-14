@@ -31,4 +31,14 @@ class CategoryGateTest {
         assertThat(CategoryGate.canManage(creator, null, isOwner = false)).isFalse()
         assertThat(CategoryGate.canManage(creator, null, isOwner = true)).isFalse()
     }
+
+    @Test
+    fun uncategorizedCannotBeManagedEvenByOwner() {
+        assertThat(
+            CategoryGate.canManage(creator, owner, isOwner = true, isUncategorized = true),
+        ).isFalse()
+        assertThat(
+            CategoryGate.canManage(creator, creator, isOwner = false, isUncategorized = true),
+        ).isFalse()
+    }
 }

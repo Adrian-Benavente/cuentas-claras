@@ -79,6 +79,7 @@ fun ExpenseCategoryDto.toDomain(): ExpenseCategory = ExpenseCategory(
     createdBy = UserId(createdBy),
     createdAt = Instant.parse(createdAt),
     updatedAt = Instant.parse(updatedAt),
+    isUncategorized = isUncategorized,
 )
 
 fun ExpenseDto.toDomain(): Expense {

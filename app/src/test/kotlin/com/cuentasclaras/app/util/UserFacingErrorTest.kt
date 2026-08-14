@@ -72,6 +72,11 @@ class UserFacingErrorTest(
                 "Solo quien creó la categoría o el administrador puede modificarla o eliminarla.",
             ),
             arrayOf(
+                "cannot delete default category",
+                UserFacingError.Context.Category,
+                "Sin categoría no se puede modificar ni eliminar.",
+            ),
+            arrayOf(
                 "permission denied for table",
                 UserFacingError.Context.Generic,
                 "No tenés permiso para esa acción.",

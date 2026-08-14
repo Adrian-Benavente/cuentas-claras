@@ -1122,6 +1122,7 @@ private fun SettingsTab(
                     createdBy = category.createdBy,
                     currentUserId = content.currentUserId,
                     isOwner = content.isOwner,
+                    isUncategorized = category.isUncategorized,
                 )
                 ListItem(
                     leadingContent = {
@@ -1324,7 +1325,7 @@ private fun SettingsTab(
             title = { Text("Eliminar categoría") },
             text = {
                 Text(
-                    "¿Eliminar \"${pending.name}\"? Solo se puede si no hay gastos que la usen.",
+                    "¿Eliminar \"${pending.name}\"? Los gastos que la usen pasarán a Sin categoría.",
                 )
             },
             confirmButton = {

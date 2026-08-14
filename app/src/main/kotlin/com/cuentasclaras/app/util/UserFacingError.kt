@@ -69,6 +69,9 @@ object UserFacingError {
         message.contains("only creator can edit category") ||
             message.contains("only creator can delete category") ->
             "Solo quien creó la categoría o el administrador puede modificarla o eliminarla."
+        message.contains("cannot delete default category") ||
+            message.contains("cannot edit default category") ->
+            "Sin categoría no se puede modificar ni eliminar."
         message.contains("category is in use") ->
             "No se puede eliminar: hay gastos que usan esta categoría."
         message.contains("not authenticated") ||
