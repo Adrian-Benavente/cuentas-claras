@@ -67,6 +67,11 @@ class UserFacingErrorTest(
                 "No pudimos crear el grupo. Intentá de nuevo.",
             ),
             arrayOf(
+                "only creator can edit category",
+                UserFacingError.Context.Category,
+                "Solo quien creó la categoría o el administrador puede modificarla o eliminarla.",
+            ),
+            arrayOf(
                 "permission denied for table",
                 UserFacingError.Context.Generic,
                 "No tenés permiso para esa acción.",

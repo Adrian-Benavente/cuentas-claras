@@ -98,6 +98,7 @@ import com.cuentasclaras.app.ui.theme.GroupThemes
 import com.cuentasclaras.app.ui.theme.GroupThemed
 import com.cuentasclaras.app.util.InviteShare
 import com.cuentasclaras.app.util.MoneyFormatter
+import com.cuentasclaras.domain.finance.CategoryGate
 import com.cuentasclaras.domain.finance.ExpenseLabels
 import com.cuentasclaras.domain.finance.PeriodGate
 import com.cuentasclaras.domain.model.CategoryIcon
@@ -1106,7 +1107,7 @@ private fun SettingsTab(
 
         Text("Categorías de gastos", style = MaterialTheme.typography.titleMedium)
         Text(
-            "Se reutilizan al cargar gastos. Solo quien crea una categoría puede editarla o eliminarla.",
+            "Se reutilizan al cargar gastos. Podés editar o eliminar las que creaste. El administrador puede editar o eliminar cualquiera.",
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
@@ -1117,7 +1118,11 @@ private fun SettingsTab(
             )
         } else {
             content.categories.forEach { category ->
-                val canEdit = category.createdBy == content.currentUserId
+                val canEdit = CategoryGate.canManage(
+                    createdBy = category.createdBy,
+                    currentUserId = content.currentUserId,
+                    isOwner = content.isOwner,
+                )
                 ListItem(
                     leadingContent = {
                         Icon(

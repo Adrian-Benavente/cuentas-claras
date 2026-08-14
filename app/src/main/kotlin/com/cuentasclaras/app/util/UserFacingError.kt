@@ -68,7 +68,7 @@ object UserFacingError {
             "Elegí un ícono válido para la categoría."
         message.contains("only creator can edit category") ||
             message.contains("only creator can delete category") ->
-            "Solo quien creó la categoría puede modificarla o eliminarla."
+            "Solo quien creó la categoría o el administrador puede modificarla o eliminarla."
         message.contains("category is in use") ->
             "No se puede eliminar: hay gastos que usan esta categoría."
         message.contains("not authenticated") ||
