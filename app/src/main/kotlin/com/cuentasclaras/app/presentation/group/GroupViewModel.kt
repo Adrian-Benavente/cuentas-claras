@@ -85,24 +85,33 @@ class GroupViewModel @Inject constructor(
 
     val isOnline: StateFlow<Boolean> = connectivityMonitor.isOnline
 
+    private val _isRefreshing = MutableStateFlow(false)
+    val isRefreshing: StateFlow<Boolean> = _isRefreshing.asStateFlow()
+
     private var selectedPeriod: YearMonth = YearMonth.now()
 
-    fun refresh(showLoading: Boolean = true) {
+    fun refresh(showLoading: Boolean = true, showPullIndicator: Boolean = false) {
         viewModelScope.launch {
-            if (showLoading || _state.value !is UiState.Content) {
+            if (showPullIndicator) {
+                _isRefreshing.value = true
+            } else if (showLoading || _state.value !is UiState.Content) {
                 _state.value = UiState.Loading
             }
-            runCatching { loadContent() }
-                .onSuccess { content ->
-                    _state.value = UiState.Content(content)
-                }
-                .onFailure { error ->
-                    if (_state.value !is UiState.Content) {
-                        _state.value = UiState.Error(
-                            UserFacingError.from(error, UserFacingError.Context.LoadGroup),
-                        )
+            try {
+                runCatching { loadContent() }
+                    .onSuccess { content ->
+                        _state.value = UiState.Content(content)
                     }
-                }
+                    .onFailure { error ->
+                        if (_state.value !is UiState.Content) {
+                            _state.value = UiState.Error(
+                                UserFacingError.from(error, UserFacingError.Context.LoadGroup),
+                            )
+                        }
+                    }
+            } finally {
+                _isRefreshing.value = false
+            }
         }
     }
 

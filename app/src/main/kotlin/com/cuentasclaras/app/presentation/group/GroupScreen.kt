@@ -63,6 +63,7 @@ import androidx.compose.material3.Tab
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
@@ -141,6 +142,7 @@ fun GroupScreen(
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
     val isOnline by viewModel.isOnline.collectAsStateWithLifecycle()
+    val isRefreshing by viewModel.isRefreshing.collectAsStateWithLifecycle()
     val pagerState = rememberPagerState(
         initialPage = if (focusInvite) 3 else 0,
         pageCount = { groupTabs.size },
@@ -229,85 +231,110 @@ fun GroupScreen(
         ) { padding ->
             when (val ui = state) {
                 UiState.Loading -> FullScreenLoading(Modifier.padding(padding))
-                is UiState.Error -> FullScreenMessage(
-                    title = "No pudimos cargar el grupo",
-                    body = ui.message,
-                    actionLabel = "Reintentar",
-                    onAction = { viewModel.refresh(showLoading = true) },
-                    isError = true,
-                    modifier = Modifier.padding(padding),
-                )
                 UiState.Empty -> FullScreenMessage(
                     title = "Sin datos",
                     body = "Este grupo todavía no tiene información para mostrar.",
                     modifier = Modifier.padding(padding),
                 )
-                is UiState.Content -> {
-                    Column(Modifier.padding(padding).fillMaxSize()) {
-                        OfflineBanner(visible = showOfflineBanner)
-                        PrimaryTabRow(selectedTabIndex = pagerState.currentPage) {
-                            groupTabs.forEachIndexed { index, tab ->
-                                Tab(
-                                    selected = pagerState.currentPage == index,
-                                    onClick = {
-                                        tabScope.launch { pagerState.animateScrollToPage(index) }
-                                    },
-                                    icon = {
-                                        Icon(
-                                            imageVector = tab.icon,
-                                            contentDescription = null,
-                                        )
-                                    },
-                                    modifier = Modifier.semantics {
-                                        contentDescription = tab.label
-                                    },
-                                )
+                is UiState.Error, is UiState.Content -> {
+                    PullToRefreshBox(
+                        isRefreshing = isRefreshing,
+                        onRefresh = {
+                            viewModel.refresh(showLoading = false, showPullIndicator = true)
+                        },
+                        modifier = Modifier
+                            .padding(padding)
+                            .fillMaxSize()
+                            .semantics { contentDescription = "Actualizar grupo" },
+                    ) {
+                        when (ui) {
+                            is UiState.Error -> FullScreenMessage(
+                                title = "No pudimos cargar el grupo",
+                                body = ui.message,
+                                actionLabel = "Reintentar",
+                                onAction = { viewModel.refresh(showLoading = true) },
+                                isError = true,
+                                modifier = Modifier.fillMaxSize(),
+                            )
+                            is UiState.Content -> {
+                                Column(Modifier.fillMaxSize()) {
+                                    OfflineBanner(visible = showOfflineBanner)
+                                    PrimaryTabRow(selectedTabIndex = pagerState.currentPage) {
+                                        groupTabs.forEachIndexed { index, tab ->
+                                            Tab(
+                                                selected = pagerState.currentPage == index,
+                                                onClick = {
+                                                    tabScope.launch {
+                                                        pagerState.animateScrollToPage(index)
+                                                    }
+                                                },
+                                                icon = {
+                                                    Icon(
+                                                        imageVector = tab.icon,
+                                                        contentDescription = null,
+                                                    )
+                                                },
+                                                modifier = Modifier.semantics {
+                                                    contentDescription = tab.label
+                                                },
+                                            )
+                                        }
+                                    }
+                                    HorizontalPager(
+                                        state = pagerState,
+                                        modifier = Modifier
+                                            .weight(1f)
+                                            .fillMaxWidth(),
+                                        beyondViewportPageCount = 0,
+                                        verticalAlignment = Alignment.Top,
+                                    ) { page ->
+                                        when (page) {
+                                            0 -> SummaryTab(
+                                                content = ui.data,
+                                                onPrevious = viewModel::previousPeriod,
+                                                onNext = viewModel::nextPeriod,
+                                                onSelectPeriod = viewModel::setPeriod,
+                                                onMarkSettled = viewModel::markSettled,
+                                                onUndoPayment = viewModel::undoPayment,
+                                                onRequestClosePeriod = {
+                                                    showClosePeriodConfirm = true
+                                                },
+                                                onRequestReopenPeriod = {
+                                                    showReopenPeriodConfirm = true
+                                                },
+                                                onGoToInvite = ::goToInviteTab,
+                                            )
+                                            1 -> ExpensesTab(
+                                                content = ui.data,
+                                                onOpenExpense = onOpenExpense,
+                                                onAddExpense = onAddExpense,
+                                                onGoToInvite = ::goToInviteTab,
+                                            )
+                                            2 -> MembersTab(
+                                                content = ui.data,
+                                                onRemoveMember = viewModel::removeMember,
+                                            )
+                                            3 -> SettingsTab(
+                                                content = ui.data,
+                                                highlightInvite = focusInvite ||
+                                                    ui.data.members.size < 2,
+                                                onCodeCopied = {
+                                                    snackbarHostState.showSnackbar("Código copiado")
+                                                },
+                                                onRequestRotateCode = { showRotateConfirm = true },
+                                                onPickAvatar = viewModel::setAvatar,
+                                                onClearAvatar = viewModel::clearAvatar,
+                                                onSetTheme = viewModel::setTheme,
+                                                onCreateCategory = viewModel::createCategory,
+                                                onUpdateCategory = viewModel::updateCategory,
+                                                onDeleteCategory = viewModel::deleteCategory,
+                                                onLogout = onLogout,
+                                            )
+                                        }
+                                    }
+                                }
                             }
-                        }
-                        HorizontalPager(
-                            state = pagerState,
-                            modifier = Modifier
-                                .weight(1f)
-                                .fillMaxWidth(),
-                            beyondViewportPageCount = 0,
-                            verticalAlignment = Alignment.Top,
-                        ) { page ->
-                            when (page) {
-                                0 -> SummaryTab(
-                                    content = ui.data,
-                                    onPrevious = viewModel::previousPeriod,
-                                    onNext = viewModel::nextPeriod,
-                                    onSelectPeriod = viewModel::setPeriod,
-                                    onMarkSettled = viewModel::markSettled,
-                                    onUndoPayment = viewModel::undoPayment,
-                                    onRequestClosePeriod = { showClosePeriodConfirm = true },
-                                    onRequestReopenPeriod = { showReopenPeriodConfirm = true },
-                                    onGoToInvite = ::goToInviteTab,
-                                )
-                                1 -> ExpensesTab(
-                                    content = ui.data,
-                                    onOpenExpense = onOpenExpense,
-                                    onAddExpense = onAddExpense,
-                                    onGoToInvite = ::goToInviteTab,
-                                )
-                                2 -> MembersTab(
-                                    content = ui.data,
-                                    onRemoveMember = viewModel::removeMember,
-                                )
-                                3 -> SettingsTab(
-                                    content = ui.data,
-                                    highlightInvite = focusInvite || ui.data.members.size < 2,
-                                    onCodeCopied = { snackbarHostState.showSnackbar("Código copiado") },
-                                    onRequestRotateCode = { showRotateConfirm = true },
-                                    onPickAvatar = viewModel::setAvatar,
-                                    onClearAvatar = viewModel::clearAvatar,
-                                    onSetTheme = viewModel::setTheme,
-                                    onCreateCategory = viewModel::createCategory,
-                                    onUpdateCategory = viewModel::updateCategory,
-                                    onDeleteCategory = viewModel::deleteCategory,
-                                    onLogout = onLogout,
-                                )
-                            }
+                            else -> Unit
                         }
                     }
                 }
