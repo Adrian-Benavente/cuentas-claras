@@ -12,8 +12,13 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Visibility
+import androidx.compose.material.icons.filled.VisibilityOff
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
@@ -22,7 +27,10 @@ import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
@@ -31,6 +39,7 @@ import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
+import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
 import android.util.Log
 import androidx.credentials.CredentialManager
@@ -94,16 +103,9 @@ fun LoginScreen(
                 .semantics { contentDescription = "Campo email" },
         )
         Spacer(Modifier.height(12.dp))
-        OutlinedTextField(
+        PasswordField(
             value = form.password,
             onValueChange = viewModel::onPasswordChange,
-            label = { Text("Contraseña") },
-            singleLine = true,
-            visualTransformation = PasswordVisualTransformation(),
-            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
-            modifier = Modifier
-                .fillMaxWidth()
-                .semantics { contentDescription = "Campo contraseña" },
         )
 
         form.errorMessage?.let {
@@ -227,14 +229,9 @@ fun RegisterScreen(
             modifier = Modifier.fillMaxWidth(),
         )
         Spacer(Modifier.height(12.dp))
-        OutlinedTextField(
+        PasswordField(
             value = form.password,
             onValueChange = viewModel::onPasswordChange,
-            label = { Text("Contraseña") },
-            singleLine = true,
-            visualTransformation = PasswordVisualTransformation(),
-            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
-            modifier = Modifier.fillMaxWidth(),
         )
         form.errorMessage?.let {
             Text(it, color = MaterialTheme.colorScheme.error, modifier = Modifier.padding(top = 12.dp))
@@ -256,4 +253,48 @@ fun RegisterScreen(
             }
         }
     }
+}
+
+@Composable
+private fun PasswordField(
+    value: String,
+    onValueChange: (String) -> Unit,
+) {
+    var passwordVisible by remember { mutableStateOf(false) }
+    OutlinedTextField(
+        value = value,
+        onValueChange = onValueChange,
+        label = { Text("Contraseña") },
+        singleLine = true,
+        visualTransformation = if (passwordVisible) {
+            VisualTransformation.None
+        } else {
+            PasswordVisualTransformation()
+        },
+        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
+        trailingIcon = {
+            IconButton(
+                onClick = { passwordVisible = !passwordVisible },
+                modifier = Modifier.semantics {
+                    contentDescription = if (passwordVisible) {
+                        "Ocultar contraseña"
+                    } else {
+                        "Mostrar contraseña"
+                    }
+                },
+            ) {
+                Icon(
+                    imageVector = if (passwordVisible) {
+                        Icons.Filled.VisibilityOff
+                    } else {
+                        Icons.Filled.Visibility
+                    },
+                    contentDescription = null,
+                )
+            }
+        },
+        modifier = Modifier
+            .fillMaxWidth()
+            .semantics { contentDescription = "Campo contraseña" },
+    )
 }
