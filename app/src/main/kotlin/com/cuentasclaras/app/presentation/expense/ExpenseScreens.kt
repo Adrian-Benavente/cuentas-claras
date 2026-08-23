@@ -51,6 +51,7 @@ import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.cuentasclaras.app.presentation.components.AmountThousandsVisualTransformation
 import com.cuentasclaras.app.presentation.components.ExpenseDateField
 import com.cuentasclaras.app.ui.CategoryIcons
 import com.cuentasclaras.app.ui.theme.GroupThemed
@@ -182,6 +183,7 @@ fun ExpenseEditorScreen(
                 },
                 singleLine = true,
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                visualTransformation = AmountThousandsVisualTransformation,
                 modifier = Modifier
                     .fillMaxWidth()
                     .semantics { contentDescription = "Monto del gasto" },

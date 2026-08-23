@@ -185,7 +185,10 @@ class ExpenseEditorViewModel @Inject constructor(
     }
 
     fun onAmountChange(value: String) {
-        _state.value = _state.value.copy(amountInput = value, errorMessage = null)
+        _state.value = _state.value.copy(
+            amountInput = MoneyFormatter.sanitizeAmountInput(value),
+            errorMessage = null,
+        )
     }
 
     fun onPaidByChange(userId: UserId) {

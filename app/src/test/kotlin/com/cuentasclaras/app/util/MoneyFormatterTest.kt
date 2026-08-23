@@ -28,6 +28,33 @@ class MoneyFormatterTest {
     }
 
     @Test
+    fun parseToMinor_thousandsWithoutCents() {
+        assertThat(MoneyFormatter.parseToMinor("80.000")).isEqualTo(8_000_000L)
+    }
+
+    @Test
+    fun sanitizeAmountInput_stripsTypedDots() {
+        assertThat(MoneyFormatter.sanitizeAmountInput("80.000")).isEqualTo("80000")
+        assertThat(MoneyFormatter.sanitizeAmountInput("80000.")).isEqualTo("80000")
+    }
+
+    @Test
+    fun sanitizeAmountInput_keepsCommaAndCapsCents() {
+        assertThat(MoneyFormatter.sanitizeAmountInput("80000,5")).isEqualTo("80000,5")
+        assertThat(MoneyFormatter.sanitizeAmountInput("80000,555")).isEqualTo("80000,55")
+        assertThat(MoneyFormatter.sanitizeAmountInput("1.250,50")).isEqualTo("1250,50")
+    }
+
+    @Test
+    fun groupThousands_insertsDots() {
+        assertThat(MoneyFormatter.groupThousands("80000")).isEqualTo("80.000")
+        assertThat(MoneyFormatter.groupThousands("80000,50")).isEqualTo("80.000,50")
+        assertThat(MoneyFormatter.groupThousands("1250,50")).isEqualTo("1.250,50")
+        assertThat(MoneyFormatter.groupThousands(",50")).isEqualTo(",50")
+        assertThat(MoneyFormatter.groupThousands("")).isEqualTo("")
+    }
+
+    @Test
     fun formatMajorInput_withoutCents() {
         assertThat(MoneyFormatter.formatMajorInput(8_000_000L)).isEqualTo("80000")
     }
