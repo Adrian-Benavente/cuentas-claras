@@ -326,6 +326,7 @@ fun GroupScreen(
                                                 onRequestRotateCode = { showRotateConfirm = true },
                                                 onPickAvatar = viewModel::setAvatar,
                                                 onClearAvatar = viewModel::clearAvatar,
+                                                onSetName = viewModel::setName,
                                                 onSetTheme = viewModel::setTheme,
                                                 onCreateCategory = viewModel::createCategory,
                                                 onUpdateCategory = viewModel::updateCategory,
@@ -1074,6 +1075,7 @@ private fun SettingsTab(
     onRequestRotateCode: () -> Unit,
     onPickAvatar: (Uri) -> Unit,
     onClearAvatar: () -> Unit,
+    onSetName: (String) -> Unit,
     onSetTheme: (GroupThemeId) -> Unit,
     onCreateCategory: (String, CategoryIcon) -> Unit,
     onUpdateCategory: (ExpenseCategoryId, String, CategoryIcon) -> Unit,
@@ -1156,6 +1158,30 @@ private fun SettingsTab(
                 .semantics { contentDescription = "Nueva categoría" },
         ) {
             Text("Nueva categoría")
+        }
+
+        var nameDraft by remember(content.group.name) { mutableStateOf(content.group.name) }
+        if (content.isOwner) {
+            val canSaveName = nameDraft.trim().isNotEmpty() &&
+                nameDraft.trim() != content.group.name
+            Text("Nombre del grupo", style = MaterialTheme.typography.titleMedium)
+            OutlinedTextField(
+                value = nameDraft,
+                onValueChange = { nameDraft = it },
+                singleLine = true,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .semantics { contentDescription = "Nombre del grupo" },
+            )
+            OutlinedButton(
+                onClick = { onSetName(nameDraft) },
+                enabled = canSaveName,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .semantics { contentDescription = "Guardar nombre del grupo" },
+            ) {
+                Text("Guardar nombre")
+            }
         }
 
         Text("Foto del grupo", style = MaterialTheme.typography.titleMedium)

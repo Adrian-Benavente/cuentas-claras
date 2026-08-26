@@ -15,6 +15,7 @@ object UserFacingError {
         PeriodClose,
         GroupAvatar,
         GroupTheme,
+        GroupName,
         Category,
         Generic,
     }
@@ -54,6 +55,10 @@ object UserFacingError {
             "Solo el administrador puede cambiar la foto del grupo."
         message.contains("only owner can set group theme") ->
             "Solo el administrador puede cambiar el tema del grupo."
+        message.contains("only owner can set group name") ->
+            "Solo el administrador puede cambiar el nombre del grupo."
+        message.contains("invalid name") ->
+            "Ingresá un nombre para el grupo."
         message.contains("invalid theme") ->
             "Ese tema no es válido."
         message.contains("category is required") ->
@@ -124,6 +129,7 @@ object UserFacingError {
         Context.PeriodClose -> "No pudimos cambiar el estado del período. Intentá de nuevo."
         Context.GroupAvatar -> "No pudimos actualizar la foto del grupo. Intentá de nuevo."
         Context.GroupTheme -> "No pudimos actualizar el tema del grupo. Intentá de nuevo."
+        Context.GroupName -> "No pudimos actualizar el nombre del grupo. Intentá de nuevo."
         Context.Category -> "No pudimos guardar la categoría. Intentá de nuevo."
         Context.Generic -> "Algo salió mal. Intentá de nuevo."
     }

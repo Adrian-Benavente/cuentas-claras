@@ -276,6 +276,31 @@ class GroupViewModel @Inject constructor(
         }
     }
 
+    fun setName(name: String) {
+        val content = (_state.value as? UiState.Content)?.data ?: return
+        if (!content.isOwner) {
+            _messages.tryEmit("Solo el administrador puede cambiar el nombre del grupo.")
+            return
+        }
+        val trimmed = name.trim()
+        if (trimmed.isEmpty()) {
+            _messages.tryEmit("Ingresá un nombre para el grupo.")
+            return
+        }
+        if (trimmed == content.group.name) return
+        if (!requireOnline()) return
+        viewModelScope.launch {
+            runCatching { groupRepository.setName(groupId, trimmed) }
+                .onSuccess {
+                    _messages.tryEmit("Nombre del grupo actualizado")
+                    refresh(showLoading = false)
+                }
+                .onFailure { error ->
+                    _messages.tryEmit(UserFacingError.from(error, UserFacingError.Context.GroupName))
+                }
+        }
+    }
+
     fun setTheme(themeId: GroupThemeId) {
         val content = (_state.value as? UiState.Content)?.data ?: return
         if (!content.isOwner) {

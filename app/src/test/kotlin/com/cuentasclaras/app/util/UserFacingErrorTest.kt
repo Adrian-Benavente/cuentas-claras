@@ -77,6 +77,11 @@ class UserFacingErrorTest(
                 "Sin categoría no se puede modificar ni eliminar.",
             ),
             arrayOf(
+                "only owner can set group name",
+                UserFacingError.Context.GroupName,
+                "Solo el administrador puede cambiar el nombre del grupo.",
+            ),
+            arrayOf(
                 "permission denied for table",
                 UserFacingError.Context.Generic,
                 "No tenés permiso para esa acción.",

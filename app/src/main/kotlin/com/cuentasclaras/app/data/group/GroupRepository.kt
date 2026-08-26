@@ -170,6 +170,20 @@ class GroupRepository @Inject constructor(
         }
     }
 
+    suspend fun setName(groupId: GroupId, name: String) {
+        val trimmed = name.trim()
+        client.postgrest.rpc(
+            function = "set_group_name",
+            parameters = buildJsonObject {
+                put("p_group_id", groupId.value)
+                put("p_name", trimmed)
+            },
+        )
+        localCache.getGroup(groupId)?.let { cached ->
+            localCache.upsertGroup(cached.copy(name = trimmed))
+        }
+    }
+
     private fun publicAvatarUrl(path: String): String {
         val base = BuildConfig.SUPABASE_URL.trimEnd('/')
         val cacheBust = System.currentTimeMillis()
