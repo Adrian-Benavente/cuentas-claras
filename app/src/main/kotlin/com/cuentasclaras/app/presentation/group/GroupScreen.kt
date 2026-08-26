@@ -96,6 +96,7 @@ import com.cuentasclaras.app.presentation.components.UiState
 import com.cuentasclaras.app.ui.CategoryIcons
 import com.cuentasclaras.app.ui.theme.GroupThemes
 import com.cuentasclaras.app.ui.theme.GroupThemed
+import com.cuentasclaras.app.util.DateFormatter
 import com.cuentasclaras.app.util.InviteShare
 import com.cuentasclaras.app.util.MoneyFormatter
 import com.cuentasclaras.domain.finance.CategoryGate
@@ -965,7 +966,7 @@ private fun ExpenseRow(
             }
         },
         headlineContent = { Text(title) },
-        supportingContent = { Text("Pagó $payer · ${expense.date}") },
+        supportingContent = { Text("Pagó $payer · ${DateFormatter.format(expense.date)}") },
         trailingContent = { Text(MoneyFormatter.format(expense.amount), fontWeight = FontWeight.SemiBold) },
         modifier = Modifier
             .clickable { onOpenExpense(expense.id.value) }

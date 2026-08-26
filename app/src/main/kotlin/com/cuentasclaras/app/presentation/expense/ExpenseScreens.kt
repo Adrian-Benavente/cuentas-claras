@@ -55,6 +55,7 @@ import com.cuentasclaras.app.presentation.components.AmountThousandsVisualTransf
 import com.cuentasclaras.app.presentation.components.ExpenseDateField
 import com.cuentasclaras.app.ui.CategoryIcons
 import com.cuentasclaras.app.ui.theme.GroupThemed
+import com.cuentasclaras.app.util.DateFormatter
 import com.cuentasclaras.app.util.MoneyFormatter
 import com.cuentasclaras.domain.finance.ExpenseLabels
 import com.cuentasclaras.domain.finance.InstallmentPlanner
@@ -450,7 +451,7 @@ fun ExpenseDetailScreen(
                     )
                 }
                 Text("Pagó: $payer")
-                Text("Fecha: ${expense.date}")
+                Text("Fecha: ${DateFormatter.format(expense.date)}")
                 Spacer(Modifier.height(8.dp))
                 Text("Reparto", style = MaterialTheme.typography.titleMedium)
                 expense.splits.forEach { split ->
