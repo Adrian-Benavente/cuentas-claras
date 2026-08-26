@@ -59,21 +59,38 @@ object InstallmentPlanner {
 
         val base = totalMinor / count
         val remainder = totalMinor % count
-        val startDay = startDate.dayOfMonth
 
         return (startIndex..count).map { index ->
             val amountOffset = index - 1
-            val dateOffset = index - startIndex
             val amountMinor = base + if (amountOffset < remainder) 1L else 0L
-            val period = YearMonth.from(startDate).plusMonths(dateOffset.toLong())
-            val day = minOf(startDay, period.lengthOfMonth())
             InstallmentSlice(
                 index = index,
                 count = count,
-                date = period.atDay(day),
+                date = dateForIndex(
+                    anchorIndex = startIndex,
+                    anchorDate = startDate,
+                    targetIndex = index,
+                ),
                 amountMinor = amountMinor,
             )
         }
+    }
+
+    /**
+     * Date of installment [targetIndex] when [anchorIndex] falls on [anchorDate].
+     * Same day-of-month, clamped to each month's length.
+     */
+    fun dateForIndex(
+        anchorIndex: Int,
+        anchorDate: LocalDate,
+        targetIndex: Int,
+    ): LocalDate {
+        require(anchorIndex >= 1) { "Installment anchor index must be at least 1" }
+        require(targetIndex >= 1) { "Installment target index must be at least 1" }
+        val dateOffset = targetIndex - anchorIndex
+        val period = YearMonth.from(anchorDate).plusMonths(dateOffset.toLong())
+        val day = minOf(anchorDate.dayOfMonth, period.lengthOfMonth())
+        return period.atDay(day)
     }
 
     fun labeledDescription(baseDescription: String, index: Int, count: Int): String =

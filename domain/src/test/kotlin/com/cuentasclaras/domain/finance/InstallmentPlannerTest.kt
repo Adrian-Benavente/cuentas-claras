@@ -141,4 +141,31 @@ class InstallmentPlannerTest {
             InstallmentPlanner.planRemaining(100L, 3, 4, LocalDate.of(2026, 8, 1))
         }
     }
+
+    @Test
+    fun dateForIndex_movingFirstInstallmentShiftsLaterOnes() {
+        val oct15 = LocalDate.of(2026, 10, 15)
+        assertThat(InstallmentPlanner.dateForIndex(1, oct15, 1))
+            .isEqualTo(LocalDate.of(2026, 10, 15))
+        assertThat(InstallmentPlanner.dateForIndex(1, oct15, 2))
+            .isEqualTo(LocalDate.of(2026, 11, 15))
+    }
+
+    @Test
+    fun dateForIndex_editingSecondInstallmentShiftsEarlierOnes() {
+        val nov15 = LocalDate.of(2026, 11, 15)
+        assertThat(InstallmentPlanner.dateForIndex(2, nov15, 1))
+            .isEqualTo(LocalDate.of(2026, 10, 15))
+        assertThat(InstallmentPlanner.dateForIndex(2, nov15, 2))
+            .isEqualTo(LocalDate.of(2026, 11, 15))
+    }
+
+    @Test
+    fun dateForIndex_clampsDayToMonthLength() {
+        val jan31 = LocalDate.of(2026, 1, 31)
+        assertThat(InstallmentPlanner.dateForIndex(1, jan31, 2))
+            .isEqualTo(LocalDate.of(2026, 2, 28))
+        assertThat(InstallmentPlanner.dateForIndex(1, jan31, 3))
+            .isEqualTo(LocalDate.of(2026, 3, 31))
+    }
 }

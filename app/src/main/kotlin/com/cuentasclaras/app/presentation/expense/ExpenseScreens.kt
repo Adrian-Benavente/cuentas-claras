@@ -288,6 +288,13 @@ fun ExpenseEditorScreen(
                 date = state.date,
                 onDateChange = viewModel::onDateChange,
             )
+            if (state.existing?.isInstallment == true) {
+                Text(
+                    "Si cambiás la fecha, se mueven todas las cuotas de la serie.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
 
             if (state.fromCache) {
                 Text(

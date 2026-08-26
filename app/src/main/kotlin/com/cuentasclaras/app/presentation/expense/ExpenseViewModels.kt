@@ -49,6 +49,7 @@ data class ExpenseEditorUiState(
     val isInstallment: Boolean = false,
     val installmentCountInput: String = "3",
     val installmentStartIndexInput: String = "1",
+    val seriesInstallments: List<Expense> = emptyList(),
     val isLoading: Boolean = false,
     val isSaving: Boolean = false,
     val errorMessage: String? = null,
@@ -100,8 +101,25 @@ data class ExpenseEditorUiState(
 
     val isMutationBlocked: Boolean
         get() {
+            val existingExpense = existing
+            if (existingExpense?.isInstallment == true &&
+                date != existingExpense.date &&
+                seriesInstallments.isNotEmpty()
+            ) {
+                val anchorIndex = existingExpense.installmentIndex ?: return true
+                return seriesInstallments.any { sibling ->
+                    val siblingIndex = sibling.installmentIndex ?: return@any false
+                    val newDate = InstallmentPlanner.dateForIndex(
+                        anchorIndex = anchorIndex,
+                        anchorDate = date,
+                        targetIndex = siblingIndex,
+                    )
+                    !PeriodGate.canMutateExpense(sibling.date, closedPeriods) ||
+                        !PeriodGate.canMutateExpense(newDate, closedPeriods)
+                }
+            }
             if (isExistingPeriodClosed) return true
-            if (!isInstallment || existing != null) return isSelectedDateClosed
+            if (!isInstallment || existingExpense != null) return isSelectedDateClosed
             val total = MoneyFormatter.parseToMinor(amountInput, currency) ?: return isSelectedDateClosed
             val count = parsedInstallmentCount ?: return isSelectedDateClosed
             val startIndex = parsedInstallmentStartIndex ?: return isSelectedDateClosed
@@ -143,6 +161,15 @@ class ExpenseEditorViewModel @Inject constructor(
                 val closedPeriods = periodRepository.listClosedPeriods(groupId)
                 val currentUser = authRepository.currentUserId()
                 val existing = expenseId?.let { expenseRepository.getExpense(groupId, it) }
+                val seriesId = existing?.data?.installmentSeriesId
+                val listedSeries = if (seriesId.isNullOrBlank()) {
+                    null
+                } else {
+                    expenseRepository.listExpenses(groupId)
+                }
+                val seriesInstallments = listedSeries?.data.orEmpty().filter {
+                    it.installmentSeriesId == seriesId
+                }
                 val existingCategoryId = existing?.data?.categoryId
                 val defaultCategoryId = existingCategoryId
                     ?: categories.data.firstOrNull()?.id
@@ -161,11 +188,13 @@ class ExpenseEditorViewModel @Inject constructor(
                     closedPeriods = closedPeriods.data,
                     isLoading = false,
                     existing = existing?.data,
+                    seriesInstallments = seriesInstallments,
                     fromCache = group.fromCache ||
                         members.fromCache ||
                         categories.fromCache ||
                         closedPeriods.fromCache ||
-                        (existing?.fromCache == true),
+                        (existing?.fromCache == true) ||
+                        (listedSeries?.fromCache == true),
                 )
             }.onFailure { error ->
                 _state.value = _state.value.copy(
